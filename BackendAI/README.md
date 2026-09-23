@@ -59,6 +59,33 @@ loaded. `BackendAI/.env.example` lists example values. For example, set
 `$env:OPENAI_API_KEY = "..."` in PowerShell before starting the process.
 Never commit keys or `.env` files.
 
+### Enable live LLM explanations locally
+
+Create an API key using the [OpenAI setup instructions](https://developers.openai.com/api/docs/quickstart).
+From the repository root, run this in your own PowerShell terminal:
+
+```powershell
+BackendAI/.venv/Scripts/python.exe BackendAI/run.py --llm openai
+```
+
+Paste the key into the hidden terminal prompt and press Enter. The launcher
+sets `OPENAI_API_KEY` for this server process before loading settings. It does
+not write the key to disk or change your persistent Windows environment.
+An already configured environment key is reused. For NVIDIA use `--llm nvidia`;
+for both providers use `--llm both`. Running without `--llm` retains the normal
+environment-only startup. A `.env` entry alone does not enable a provider.
+
+With the server running, check a real recommendation from a second terminal:
+
+```powershell
+Invoke-RestMethod -Uri http://localhost:8000/api/recommend -Method Post -ContentType application/json -Body '{"employee_id":"E0001"}' | ConvertTo-Json -Depth 10
+```
+
+`llm_used: true` and `explanation_source: "openai"` (or `"nvidia"`) confirm
+successful live generation. `llm_used: false` means the local fallback was used;
+check the server log for the provider error class. `/api/health` only confirms
+that a provider was configured; it does not validate the key or API access.
+
 | Variable | Default / meaning |
 | --- | --- |
 | `OPENAI_API_KEY`, `NVIDIA_API_KEY` | Optional; no keys means fully local explanations |
@@ -145,7 +172,7 @@ review-date replay, course ceilings, concurrent completion, upload merges and
 rollback, reset, error responses, HR counts and LLM provider failures/timeouts.
 Controlled fixtures are used only for edge cases in tests.
 
-Verified locally: **37 tests pass**, Python 3.13.5 (the existing workspace
+Verified locally: **42 tests pass**, Python 3.13.5 (the existing workspace
 virtual environment); bytecode compilation and `pip check` also pass.
 Python 3.12 is the project target but was not available for this local run.
 The installed Starlette emits one test-client deprecation warning about httpx.
