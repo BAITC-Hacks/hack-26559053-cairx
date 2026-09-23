@@ -192,8 +192,15 @@ Verified locally: **42 tests pass**, Python 3.13.5 (the existing workspace
 virtual environment); bytecode compilation and `pip check` also pass.
 Python 3.12 is the project target but was not available for this local run.
 The installed Starlette emits one test-client deprecation warning about httpx.
-Provider failures and successes are simulated in tests; no paid live API calls
-were made.
+Provider failures and successes are simulated in automated tests.
+
+Live OpenAI access was verified on 2026-09-23 using the saved Windows user
+environment key and the running API. `POST /api/recommend` for `E0001` returned
+`llm_used: true` and `explanation_source: "openai"` on both cards in 2.724 seconds.
+A minimal provider request also succeeded with `gpt-4o-mini-2024-07-18`.
+The initial recommendation exceeded the four-second provider deadline and
+correctly returned template explanations; the subsequent request succeeded.
+Live NVIDIA access has not been verified.
 
 State is intentionally in memory: use a single server worker. Restart/reset
 discards uploads and simulated progress. The API has no authentication; the
