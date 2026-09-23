@@ -8,7 +8,7 @@ import httpx
 from openai import APIStatusError
 import pytest
 
-from app.services.explain import Explainer, explanation_context, template
+from app.services.explain import Explainer, explanation_context, history_context, template
 from app.services.scoring import rank
 
 
@@ -34,7 +34,7 @@ async def test_openai_to_nvidia_fallback_preserves_ranking(store, config):
     explainer = Explainer(config)
     explainer.providers = [("openai", "gpt-4o-mini", failed), ("nvidia", "meta/llama-3.1-70b-instruct", working)]
     assert await explainer.explain(data, employee, items) is True
-    assert all(item.explanation_source == "nvidia" and item.explanation == explanation for item in items)
+    assert all(item.explanation_source == "nvidia" and item.explanation == explanation + " " + history_context(item) for item in items)
     assert all(item.explanation_fallback_reason is None for item in items)
     assert before == [(item.event_id, item.score, item.factors.model_dump()) for item in items]
     assert working.chat.completions.create.call_args.kwargs["temperature"] == 0
@@ -113,7 +113,7 @@ def test_template_explains_purpose_and_does_not_invent_history(store):
     text = template(data, employee, item)
     assert employee.role in text and "Middle" in text
     assert data.events[item.event_id].description in text
-    assert "В загруженной истории нет похожих активностей" in text
+    assert "В загруженной истории пока нет завершений" in text
     assert "препятствует готовности" in text
     assert "остальных требований" in text
 
@@ -251,3 +251,25 @@ async def test_numeric_history_changes_and_expiry_force_fresh_generation(store, 
     await explainer.explain(data, employee, [item])
     assert fake.chat.completions.create.await_count == 3
     assert not item.explanation_cached
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("attended,skipped,declined,expected", [
+    (0, 0, 0, "пока нет завершений"), (2, 0, 0, "Вы уже завершали"),
+    (1, 1, 0, "есть пропуски или прерывания"), (0, 0, 1, "есть отказы"),
+])
+async def test_history_sentence_comes_from_recorded_facts(store, config, attended, skipped, declined, expected):
+    data = store.snapshot()
+    employee = data.employees["E0001"]
+    item = rank(data, employee)[0][0]
+    item.factors.history_fit.similar_attended = attended
+    item.factors.history_fit.similar_skipped = skipped
+    item.factors.history_fit.similar_declined = declined
+    fake = provider(result=response({"explanation": "A course-specific explanation of practical benefit and expected progress."}))
+    explainer = Explainer(config)
+    explainer.providers = [("openai", "gpt-4o-mini", fake)]
+    assert await explainer.explain(data, employee, [item])
+    assert item.explanation.endswith(history_context(item))
+    assert expected in item.explanation
+    if attended and not skipped and not declined:
+        assert "нет завершений" not in item.explanation

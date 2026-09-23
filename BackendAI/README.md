@@ -166,8 +166,10 @@ participation history supports. The prompt includes actual course content and sk
 descriptions from the dataset. Python translates calculated levels/gains/ceilings
 into explicit outcomes (closing a skill gap versus only reducing it), rather than
 asking the LLM to recalculate them or repeat a table of numbers. The exact numeric
-factors remain unchanged in the API. Missing history is explicitly distinguished
-from lack of experience; no on-time completion claims are inferred from counts.
+factors remain unchanged in the API. Python appends a history sentence from the
+recorded counts to the LLM's practical/career paragraph, so that this fact-sensitive
+part is not left for the model to infer. Missing history is distinguished from
+lack of experience; no on-time completion claims are inferred from counts.
 
 Up to three card explanations run concurrently. Each tries OpenAI, then NVIDIA,
 then a local narrative template. Both providers use `temperature=0` and zero
@@ -213,18 +215,23 @@ review-date replay, course ceilings, concurrent completion, upload merges and
 rollback, reset, error responses, HR counts and LLM provider failures/timeouts.
 Controlled fixtures are used only for edge cases in tests.
 
-Verified locally: **54 tests pass**, Python 3.13.5 (the existing workspace
+Verified locally: **58 tests pass**, Python 3.13.5 (the existing workspace
 virtual environment); bytecode compilation and `pip check` also pass.
 Python 3.12 is the project target but was not available for this local run.
 The installed Starlette emits one test-client deprecation warning about httpx.
 Provider failures and successes are simulated in automated tests.
 
-Live OpenAI access was verified on 2026-09-23 using the saved Windows user
-environment key and the running API. `POST /api/recommend` for `E0001` returned
-`llm_used: true` and `explanation_source: "openai"` on both cards in 2.724 seconds.
-A minimal provider request also succeeded with `gpt-4o-mini-2024-07-18`.
-The initial recommendation exceeded the four-second provider deadline and
-correctly returned template explanations; the subsequent request succeeded.
+Live OpenAI access was verified on 2026-09-23 after the explanation update,
+using the saved Windows user environment key and the running API.
+`POST /api/recommend` returned fresh `gpt-4o-mini-2024-07-18` explanations for
+both `E0001` cards in 2.717 seconds and all three `E0004` cards in 3.151 seconds.
+Every card had `explanation_source: "openai"`, `explanation_cached: false`,
+and a null fallback reason. `llm_used` was true in both responses.
+Repeating `E0004` returned identical generated paragraphs in 0.004 seconds,
+with `explanation_cached: true`. The history sentences matched recorded
+completions (two, one and zero respectively) without inventing participation.
+The previous implementation often hit its four-second deadline; the new
+implementation uses concurrent per-card requests and a larger bounded budget.
 Live NVIDIA access has not been verified.
 
 State is intentionally in memory: use a single server worker. Restart/reset
