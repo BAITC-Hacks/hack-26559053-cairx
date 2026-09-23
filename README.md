@@ -19,11 +19,15 @@
 
 ## Запуск через Docker Compose
 
-Требуются Docker с Compose v2 и свободный порт `8000`.
+Требуются Docker с Compose v2 и свободный порт `8000`. Из корня репозитория
+приложение запускается одной командой:
 
 ```bash
-docker compose up --build
+docker compose up --build -d
 ```
+
+Файл `.env` для запуска необязателен: без LLM-ключей автоматически используется
+локальное объяснение.
 
 Приложение доступно на <http://localhost:8000>, документация API — на
 <http://localhost:8000/docs>, health check — на
