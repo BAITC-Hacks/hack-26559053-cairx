@@ -24,7 +24,7 @@ async function api(path, options = {}) {
   const state = {
     role:"employee", tab:"employee", employees:[], selectedId:null,
     profile:null, recommendations:null, showAllSkills:false,
-    selectionVersion:0, hrLoaded:false, uploadResult:null, selectedFiles:[],
+    selectionVersion:0, hrLoaded:false, hrShowAllSkills:false, hrSkills:[], uploadResult:null, selectedFiles:[],
   };
   const labels = {
     workshop:"Воркшоп", course:"Курс", compliance:"Обязательная программа",
@@ -48,11 +48,11 @@ async function api(path, options = {}) {
     return Number.isNaN(parsed.getTime()) ? String(value) : new Intl.DateTimeFormat("ru-RU", { day:"numeric", month:"long", year:"numeric" }).format(parsed);
   };
 
-  function icon(name, className = "w-5 h-5") {
+  function icon(name, className = "icon") {
     const paths = {
       arrow:'<path d="M5 12h14m-6-6 6 6-6 6"/>',
       check:'<path d="m5 12 4 4L19 6"/>',
-      close:'<path d="M6 6l12 12M18 6 6 18"/>',
+      close:'<path d="M6 6l12 12M18 6L6 18"/>',
       alert:'<path d="M12 3 2 21h20L12 3Zm0 6v5m0 3h.01"/>',
       clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
       calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18"/>',
@@ -69,18 +69,18 @@ async function api(path, options = {}) {
   }
 
   function skeleton(kind) {
-    if (kind === "profile") return `<div class="card p-8 h-[258px]"><div class="flex justify-between"><div class="space-y-4 w-2/3"><div class="skeleton h-4 w-28"></div><div class="skeleton h-9 w-3/4"></div><div class="skeleton h-4 w-1/2"></div><div class="skeleton h-3 w-full mt-8"></div></div><div class="skeleton h-36 w-36 rounded-full"></div></div></div>`;
-    if (kind === "quests") return [0, 1, 2].map(() => `<div class="card p-6 h-[315px] space-y-5"><div class="skeleton h-3 w-20"></div><div class="skeleton h-7 w-4/5"></div><div class="skeleton h-3 w-2/3"></div><div class="skeleton h-16 w-full"></div><div class="skeleton h-10 w-1/2"></div></div>`).join("");
-    if (kind === "skills") return `<div class="card p-6 grid grid-cols-2 gap-8">${[0, 1, 2, 3].map(() => '<div class="space-y-4"><div class="skeleton h-5 w-1/2"></div><div class="skeleton h-3 w-full"></div></div>').join("")}</div>`;
-    return `<div class="card p-6 space-y-5">${[0, 1, 2].map(() => '<div class="skeleton h-12 w-full"></div>').join("")}</div>`;
+    if (kind === "profile") return '<div class="card skeleton-profile"><div class="skeleton skeleton-ring"></div><div class="skeleton-lines"><div class="skeleton skeleton-line skeleton-line--wide"></div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line skeleton-line--short"></div></div><div class="skeleton-lines"><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line"></div></div></div>';
+    if (kind === "quests") return [0, 1, 2].map(() => '<div class="card skeleton-quest"><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line skeleton-line--wide"></div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line"></div></div>').join("");
+    if (kind === "skills") return '<div class="card skeleton-list"><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line"></div></div>';
+    return '<div class="card skeleton-list"><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line"></div></div>';
   }
 
   function errorCard(message, action, title = "Не удалось загрузить данные") {
-    return `<div class="card p-6 flex items-center justify-between gap-6 border-l-4 border-l-[#C46B37]" role="alert"><div class="flex items-start gap-3"><span class="text-[#C46B37] shrink-0">${icon("alert")}</span><div><h3 class="font-extrabold text-sm">${esc(title)}</h3><p class="mt-1 text-xs text-ink-500 leading-5">${esc(message)}</p></div></div><button type="button" class="button-secondary shrink-0" data-retry="${esc(action)}">Повторить</button></div>`;
+    return `<div class="card error-card" role="alert"><div class="error-card__body"><span class="error-card__icon">${icon("alert")}</span><div><h3>${esc(title)}</h3><p>${esc(message)}</p></div></div><button type="button" class="button-secondary" data-retry="${esc(action)}">Повторить</button></div>`;
   }
 
   function emptyCard(title, description) {
-    return `<div class="card p-8 text-center"><span class="inline-grid place-items-center w-11 h-11 rounded-xl bg-halyk-50 text-halyk-700">${icon("target")}</span><h3 class="mt-3 text-base font-extrabold">${esc(title)}</h3><p class="mt-1 text-xs text-ink-500">${esc(description)}</p></div>`;
+    return `<div class="card empty-card"><span class="empty-card__icon">${icon("target")}</span><h3>${esc(title)}</h3><p>${esc(description)}</p></div>`;
   }
 
   function setTab(tab) {
@@ -103,7 +103,7 @@ async function api(path, options = {}) {
 
   async function loadEmployees() {
     $("#employee-search").disabled = true;
-    $("#employee-list-status").innerHTML = '<span class="skeleton inline-block h-3 w-32 align-middle" aria-label="Загружаем сотрудников"></span>';
+    $("#employee-list-status").innerHTML = '<span class="skeleton skeleton-inline" aria-label="Загружаем сотрудников"></span>';
     $("#employee-list-error").innerHTML = "";
     try {
       const result = await api("/api/employees?limit=1000");
@@ -123,7 +123,7 @@ async function api(path, options = {}) {
   function renderOptions() {
     const query = $("#employee-search").value.trim().toLocaleLowerCase("ru");
     const matches = state.employees.filter((employee) => String(employee.name || "").toLocaleLowerCase("ru").includes(query));
-    $("#employee-options").innerHTML = matches.length ? matches.map((employee) => `<button type="button" class="selector-option" role="option" data-employee-id="${esc(employee.employee_id)}"><span><span class="block text-sm font-extrabold text-ink-900">${esc(employee.name)}</span><span class="block mt-1 text-[11px] text-ink-500">${esc(employee.role)} · ${esc(employee.grade)}</span></span>${employee.has_recommendation === false ? '<span class="text-[10px] font-bold text-ink-500">Без рекомендаций</span>' : icon("arrow", "w-4 h-4 text-halyk-600")}</button>`).join("") : '<p class="p-4 text-xs text-ink-500">По вашему запросу сотрудники не найдены.</p>';
+    $("#employee-options").innerHTML = matches.length ? matches.map((employee) => `<button type="button" class="selector-option" role="option" data-employee-id="${esc(employee.employee_id)}"><span><strong>${esc(employee.name)}</strong><small>${esc(employee.role)} · ${esc(employee.grade)}</small></span>${employee.has_recommendation === false ? '<span class="selector-option__note">Без рекомендаций</span>' : icon("arrow", "icon--sm")}</button>`).join("") : '<p class="selector-empty">По вашему запросу сотрудники не найдены.</p>';
   }
 
   function openOptions() { renderOptions(); show($("#employee-options"), true); $("#employee-search").setAttribute("aria-expanded", "true"); }
@@ -176,7 +176,7 @@ async function api(path, options = {}) {
       renderRecommendations();
     } catch (error) {
       if (version !== state.selectionVersion) return;
-      $("#recommend-mount").innerHTML = `<div class="col-span-3">${errorCard(error.message, "recommend", "Рекомендации недоступны")}</div>`;
+      $("#recommend-mount").innerHTML = `<div class="grid-full">${errorCard(error.message, "recommend", "Рекомендации недоступны")}</div>`;
       show($("#not-recommended"), false);
     }
   }
@@ -199,18 +199,10 @@ async function api(path, options = {}) {
     const gapDescription = nextGrade
       ? criticalCount ? `До ${nextGrade} осталось закрыть ${criticalSkillPhrase(criticalCount)}` : `Критичные навыки для ${nextGrade} закрыты`
       : "Требования следующего грейда не переданы API.";
-    $("#profile-mount").innerHTML = `<section class="rounded-2xl bg-gradient-to-r from-halyk-700 to-halyk-500 text-white p-8 shadow-card" aria-label="Профиль сотрудника">
-      <div class="flex items-start justify-between gap-8">
-        <div class="flex-1 min-w-0">
-          <div class="flex items-start gap-5">
-            <div class="w-14 h-14 shrink-0 grid place-items-center rounded-2xl bg-white/15 border border-white/25 text-lg font-extrabold">${esc(initials)}</div>
-            <div><p class="text-[11px] uppercase tracking-[.17em] font-extrabold text-white/70">Маршрут развития</p><h2 class="text-[30px] leading-tight font-extrabold tracking-[-.05em] mt-1">${esc(profile.name)}</h2><p class="text-sm text-white/80 mt-1">${esc(profile.role)}</p></div>
-          </div>
-          <div class="mt-8 flex items-center gap-3"><span class="px-3 py-1.5 rounded-lg bg-white/15 text-xs font-extrabold">${esc(profile.grade)} → ${esc(nextGrade || "не задан")}</span><span class="text-xs text-white/75">${esc(profile.tenure_months)} мес. в компании</span></div>
-          <div class="mt-7 max-w-[565px]"><div class="flex justify-between gap-3 text-xs font-bold mb-2"><span>${esc(progressTitle)}</span><span>${number(progress * 100)}%</span></div><div class="w-full h-2 rounded-full bg-white/25 overflow-hidden"><div class="xp-fill h-full rounded-full bg-white" style="width:${initial * 100}%"></div></div><p class="mt-2 text-[11px] text-white/75">${esc(gapDescription)}</p></div>
-        </div>
-        <div class="relative w-40 h-40 shrink-0" role="progressbar" aria-label="Прогресс к следующему грейду" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(progress * 100)}"><svg class="w-40 h-40 -rotate-90" viewBox="0 0 128 128" aria-hidden="true"><circle cx="64" cy="64" r="52" stroke="rgba(255,255,255,.24)" stroke-width="9" fill="none"/><circle class="ring-progress" cx="64" cy="64" r="52" stroke="white" stroke-linecap="round" stroke-width="9" fill="none" stroke-dasharray="${circleLength}" stroke-dashoffset="${circleLength * (1 - initial)}"/></svg><div class="absolute inset-0 flex flex-col items-center justify-center"><span class="text-[10px] font-extrabold uppercase tracking-widest text-white/70">Уровень</span><span class="text-5xl leading-none font-extrabold mt-1">${gradeLevel(profile.grade)}</span><span class="text-[10px] text-white/75 mt-1">${esc(profile.grade)}</span></div></div>
-      </div>
+    $("#profile-mount").innerHTML = `<section class="profile-hero" aria-label="Профиль сотрудника">
+      <div class="profile-ring" role="progressbar" aria-label="Прогресс к следующему грейду" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(progress * 100)}"><svg viewBox="0 0 128 128" aria-hidden="true"><circle cx="64" cy="64" r="52" stroke="rgba(255,255,255,.24)" stroke-width="9" fill="none"/><circle class="ring-progress" cx="64" cy="64" r="52" stroke="white" stroke-linecap="round" stroke-width="9" fill="none" stroke-dasharray="${circleLength}" stroke-dashoffset="${circleLength * (1 - initial)}"/></svg><div class="profile-ring__center"><span class="profile-ring__value">${number(progress * 100)}%</span><span class="profile-ring__caption">до грейда</span></div></div>
+      <div class="profile-main"><div><p class="profile-kicker">Маршрут развития · ${esc(initials)}</p><h2>${esc(profile.name)}</h2><div class="profile-meta"><span>${esc(profile.role)}</span>${profile.tenure_months != null ? `<span class="profile-meta__dot"></span><span>${number(profile.tenure_months)} мес. в компании</span>` : ""}</div></div><div class="grade-path"><span class="grade-pill">${esc(profile.grade)}</span>${nextGrade ? `<span aria-hidden="true">→</span><span class="grade-pill grade-pill--next">${esc(nextGrade)}</span>` : ""}</div><div class="profile-xp"><div class="profile-xp__labels"><span>${esc(progressTitle)}</span><span>${number(progress * 100)}%</span></div><div class="profile-xp__track"><div class="xp-fill" style="width:${initial * 100}%"></div></div><p class="profile-gap-note">${esc(gapDescription)}</p></div></div>
+      <div class="profile-side">${nextGrade ? `<div class="profile-fact"><small>Следующий грейд</small><strong>${esc(nextGrade)}</strong></div>` : ""}<div class="profile-fact"><small>Критичных разрывов</small><strong>${number(criticalCount)}</strong></div></div>
     </section>`;
     if (fromProgress !== null) requestAnimationFrame(() => requestAnimationFrame(() => {
       const ring = $("#profile-mount .ring-progress");
@@ -235,13 +227,12 @@ async function api(path, options = {}) {
     const items = Array.isArray(result.recommendations) ? result.recommendations.slice(0, 3) : [];
     $("#recommend-mount").innerHTML = items.length ? items.map((item, index) => {
       const factors = item.factors && typeof item.factors === "object" ? Object.entries(item.factors) : [];
-      const nearest = "Расписание не передано API";
-      return `<article class="quest-card flex flex-col"><div class="flex justify-between items-start gap-3"><span class="text-[10px] font-extrabold uppercase tracking-[.16em] text-halyk-600">Квест ${String(index + 1).padStart(2, "0")}</span><span class="w-8 h-8 grid place-items-center rounded-lg bg-halyk-50 text-halyk-700">${icon("spark", "w-4 h-4")}</span></div><h3 class="mt-4 text-lg leading-6 tracking-tight font-extrabold">${esc(item.title)}</h3><div class="flex flex-wrap items-center gap-x-3 gap-y-2 mt-3 text-[11px] font-bold text-ink-500"><span>${esc(labels[item.type] || prettyKey(item.type))}</span><span class="w-1 h-1 rounded-full bg-ink-300"></span><span>${esc(number(item.duration, 1))} ч.</span><span class="w-1 h-1 rounded-full bg-ink-300"></span><span>${esc(nearest)}</span></div><p class="mt-5 text-xs leading-6 text-ink-700 flex-1">${esc(item.explanation || "Объяснение для активности пока не предоставлено.")}</p><div class="mt-5 pt-5 border-t border-surface-line"><p class="text-[10px] font-extrabold uppercase tracking-widest text-ink-500 mb-2">Почему подходит</p><div class="flex flex-wrap gap-1.5">${factors.length ? factors.map(([key, value]) => `<span class="factor-pill" title="${esc(factorText(value))}">${esc(prettyKey(key))}: ${esc(factorText(value))}</span>`).join("") : '<span class="text-xs text-ink-500">Факторы не переданы.</span>'}</div></div><button class="button-primary mt-6 w-full complete-button" type="button" data-event-id="${esc(item.event_id)}">${icon("play", "w-4 h-4")} Пройти</button></article>`;
-    }).join("") : `<div class="col-span-3">${emptyCard("Нет рекомендаций", "Для текущих навыков и доступных активностей подходящий следующий шаг не найден.")}</div>`;
+      return `<article class="quest-card"><div class="quest-card__top"><span class="quest-card__label">Квест ${String(index + 1).padStart(2, "0")}</span><span class="quest-card__icon">${icon("spark", "icon--sm")}</span></div><h3>${esc(item.title)}</h3><div class="quest-meta"><span>${esc(labels[item.type] || prettyKey(item.type))}</span>${item.duration != null ? `<span>${number(item.duration, 1)} ч.</span>` : ""}</div><p class="quest-explanation">${esc(item.explanation || "Объяснение для активности пока не предоставлено.")}</p><div class="quest-reasons"><h4>Почему подходит</h4><div class="quest-factors">${factors.length ? factors.map(([key, value]) => `<span class="factor-pill" title="${esc(factorText(value))}">${esc(prettyKey(key))}: ${esc(factorText(value))}</span>`).join("") : '<span class="muted">Факторы не переданы.</span>'}</div></div><div class="quest-actions"><button class="button-primary complete-button" type="button" data-event-id="${esc(item.event_id)}">${icon("play", "icon--sm")} Пройти</button></div></article>`;
+    }).join("") : `<div class="grid-full">${emptyCard("Нет рекомендаций", "Для текущих навыков и доступных активностей подходящий следующий шаг не найден.")}</div>`;
     const excluded = Array.isArray(result.not_recommended) ? result.not_recommended : [];
     show($("#not-recommended"), excluded.length > 0);
     $("#not-recommended-count").textContent = excluded.length ? `${excluded.length} активности` : "";
-    $("#not-recommended-mount").innerHTML = excluded.map((item) => `<div class="border-t border-surface-line pt-4 pb-1"><p class="text-sm font-extrabold">${esc(item.title)}</p><p class="text-xs leading-5 text-ink-500 mt-1">${esc(item.reason || "Причина не указана.")}</p></div>`).join("");
+    $("#not-recommended-mount").innerHTML = excluded.map((item) => `<div class="excluded-row"><strong>${esc(item.title)}</strong><p>${esc(item.reason || "Причина не указана.")}</p></div>`).join("");
   }
 
   function skillCard(skill, starts) {
@@ -250,7 +241,7 @@ async function api(path, options = {}) {
     const required = hasTarget ? clamp(skill.required_next, 0, 5) : null;
     const gap = Number(skill.gap) > 0;
     const stateText = gap ? `Разрыв ${number(skill.gap)}` : hasTarget ? "Цель закрыта" : "Цель не задана";
-    return `<article class="rounded-xl border ${gap ? "border-halyk-200 bg-halyk-50/30" : "border-surface-line bg-white"} p-5" data-skill-id="${esc(skill.code)}"><div class="flex items-start justify-between gap-3"><div class="flex items-center gap-2 min-w-0"><h3 class="text-sm font-extrabold truncate">${esc(skill.name)}</h3>${skill.critical ? `<span class="text-halyk-700" title="Критичный навык" aria-label="Критичный навык">${icon("shield", "w-4 h-4")}</span>` : ""}</div><span class="text-[11px] font-extrabold ${gap ? "text-halyk-700" : "text-ink-500"}">${esc(stateText)}</span></div><p class="mt-1 text-[10px] uppercase tracking-wider font-bold text-ink-500">${esc(skill.type)}</p><div class="skill-meter mt-6">${[1, 2, 3, 4, 5].map((level) => `<span class="segment ${level <= current ? "filled" : ""}" data-level="${level}"></span>`).join("")}${hasTarget ? `<span class="skill-marker" style="left:${required * 20}%" title="Требуемый уровень ${required}" aria-hidden="true"></span>` : ""}</div><div class="flex justify-between text-[11px] text-ink-500 mt-3"><span>Сейчас <strong class="text-ink-900">${number(skill.current)}/5</strong></span><span>Нужно <strong class="text-ink-900">${hasTarget ? `${number(required)}/5` : "не задано"}</strong></span></div></article>`;
+    return `<div class="skill-row" data-skill-id="${esc(skill.code)}"><div class="skill-name"><span title="${esc(skill.name)}">${esc(skill.name)}</span>${skill.critical ? `<span class="skill-critical" title="Критичный навык" aria-label="Критичный навык">${icon("shield", "icon--sm")}</span>` : ""}</div><div class="skill-meter">${[1, 2, 3, 4, 5].map((level) => `<span class="segment ${level <= current ? "filled" : level <= required ? "target-gap" : ""}" data-level="${level}"></span>`).join("")}${hasTarget ? `<span class="skill-marker" style="left:${required * 20}%" title="Требуемый уровень ${required}" aria-hidden="true"></span>` : ""}</div><div class="skill-value"><span>${number(skill.current)}<small>/${hasTarget ? number(required) : "—"}</small></span><span class="skill-chip ${gap ? "skill-chip--gap" : ""}">${esc(stateText)}</span></div></div>`;
   }
 
   function renderSkills(updates = []) {
@@ -260,7 +251,7 @@ async function api(path, options = {}) {
     const others = skills.filter((skill) => Number(skill.gap) <= 0);
     const visible = state.showAllSkills ? [...gaps, ...others] : gaps;
     const starts = new Map(updates.map((item) => [String(item.code), Number(item.before)]));
-    $("#skills-mount").innerHTML = `<div class="card p-6"><div class="flex items-center justify-between mb-5"><div><span class="text-sm font-extrabold">${gaps.length} ${skillWord(gaps.length)} с разрывом</span><p class="text-xs text-ink-500 mt-1">Пять сегментов — уровни 1–5. Риска показывает цель следующего грейда.</p></div><span class="flex items-center gap-2 text-[11px] text-ink-500"><span class="w-3 h-3 rounded-sm bg-halyk-600"></span>Текущий уровень <span class="w-[2px] h-4 bg-ink-900 ml-3"></span> Требуется</span></div>${visible.length ? `<div class="grid grid-cols-2 gap-4">${visible.map((skill) => skillCard(skill, starts)).join("")}</div>` : '<p class="text-sm text-ink-500">Разрывов по навыкам нет. Все требуемые уровни достигнуты.</p>'}${others.length ? `<button id="toggle-skills" class="button-secondary mt-5" type="button">${state.showAllSkills ? "Скрыть навыки без разрыва" : `Показать все навыки (${skills.length})`}${icon("chevron", "w-4 h-4")}</button>` : ""}</div>`;
+    $("#skills-mount").innerHTML = `<div class="card skills-panel"><div class="panel-heading"><div><h2>${gaps.length} ${skillWord(gaps.length)} с разрывом</h2><p>Пять сегментов — уровни 1–5. Риска показывает цель следующего грейда.</p></div><div class="skill-legend"><span><i class="legend-swatch"></i>Текущий</span><span><i class="legend-swatch legend-swatch--gap"></i>Разрыв</span><span><i class="legend-swatch legend-swatch--target"></i>Цель</span></div></div>${visible.length ? `<div>${visible.map((skill) => skillCard(skill, starts)).join("")}</div>` : '<p class="muted">Разрывов по навыкам нет. Все требуемые уровни достигнуты.</p>'}${others.length ? `<button id="toggle-skills" class="button-secondary skills-toggle" type="button">${state.showAllSkills ? "Скрыть навыки без разрыва" : `Показать все навыки (${skills.length})`}${icon("chevron", "icon--sm")}</button>` : ""}</div>`;
     if (updates.length) requestAnimationFrame(() => requestAnimationFrame(() => {
       updates.forEach((update) => {
         const row = [...document.querySelectorAll("[data-skill-id]")].find((item) => item.dataset.skillId === String(update.code));
@@ -290,15 +281,15 @@ async function api(path, options = {}) {
         const name = profile.skills?.find((skill) => skill.code === code)?.name || code;
         return `+${number(gain)} ${esc(name)}`;
       }).join(", ");
-      return `<div class="flex items-center gap-4 py-3"><span class="status-icon status-completed">${icon("check", "w-4 h-4")}</span><div class="flex-1 min-w-0"><p class="text-xs font-extrabold truncate">${esc(item.title)}</p><p class="text-[11px] text-ink-500 mt-1">${esc(date(item.completed_at))}${gainedText ? ` · ${gainedText}` : ""}</p></div><span class="text-[10px] font-extrabold status-completed px-2.5 py-1 rounded-lg">Завершено</span></div>`;
+      return `<div class="history-row"><span class="history-dot"></span><div><strong>${esc(item.title)}</strong><small>${esc(date(item.completed_at))}${gainedText ? ` · ${gainedText}` : ""}</small></div><span class="status-pill">Завершено</span></div>`;
     });
-    $("#history-mount").innerHTML = `<div class="card p-6"><div class="grid grid-cols-3 gap-3 mb-6">${summary.map((item) => `<div class="rounded-xl bg-surface-muted px-3 py-3"><span class="status-icon status-${item.status} mb-2">${icon(item.status === "completed" ? "check" : item.status === "no_show" ? "minus" : "close", "w-4 h-4")}</span><strong class="block text-lg font-extrabold">${number(item.value)}</strong><span class="text-[10px] font-semibold text-ink-500">${esc(item.label)}</span></div>`).join("")}</div>${rows.length ? `<div class="divide-y divide-surface-line">${rows.join("")}</div>` : '<p class="text-xs text-ink-500">Завершённых активностей пока нет.</p>'}<p class="text-[11px] text-ink-500 mt-5">Отдельные записи о пропусках, отказах, просроченных и текущих активностях API профиля не предоставляет.</p></div>`;
+    $("#history-mount").innerHTML = `<div class="card history-panel"><div class="history-stats">${summary.map((item) => `<div class="history-stat"><strong>${number(item.value)}</strong><span>${esc(item.label)}</span></div>`).join("")}</div>${rows.length ? rows.join("") : '<p class="muted">Завершённых активностей пока нет.</p>'}<p class="history-note">Отдельные записи о пропусках, отказах, просроченных и текущих активностях API профиля не предоставляет.</p></div>`;
   }
 
   function toast(message) {
     const node = document.createElement("div");
-    node.className = "toast-item flex items-center gap-3 rounded-xl bg-ink-900 text-white px-5 py-4 shadow-xl text-sm font-extrabold";
-    node.innerHTML = `${icon("check", "w-5 h-5 text-halyk-200")}<span>${esc(message)}</span>`;
+    node.className = "toast-item";
+    node.innerHTML = `${icon("check", "icon")}<span>${esc(message)}</span>`;
     $("#toast-region").append(node);
     window.setTimeout(() => node.remove(), 4200);
   }
@@ -337,36 +328,80 @@ async function api(path, options = {}) {
       }
     } catch (error) {
       button.disabled = false;
-      button.innerHTML = `${icon("play", "w-4 h-4")} Пройти`;
-      $("#recommend-mount").insertAdjacentHTML("afterbegin", `<div class="col-span-3">${errorCard(error.message, "recommend", "Не удалось завершить активность")}</div>`);
+      button.innerHTML = `${icon("play", "icon--sm")} Пройти`;
+      $("#recommend-mount").insertAdjacentHTML("afterbegin", `<div class="grid-full">${errorCard(error.message, "recommend", "Не удалось завершить активность")}</div>`);
     }
   }
 
-  function table(headers, rows, emptyMessage) {
-    if (!rows.length) return `<p class="text-xs text-ink-500 px-6 pb-6">${esc(emptyMessage)}</p>`;
-    return `<table class="table-zebra w-full"><thead><tr>${headers.map((item) => `<th>${esc(item)}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table>`;
+  function hrReason(reason) {
+    const value = String(reason || "").toLocaleLowerCase("ru");
+    if (/похожих активност|пропуск|прерыван|отказ|истори/.test(value)) return { label:"история", summary:"История участия снизила приоритет", category:"history" };
+    if (/нет доступных активност/.test(value)) return { label:"нет активностей", summary:"Нет доступных активностей для оставшихся разрывов", category:"availability" };
+    if (/все требования/.test(value)) return { label:"другое", summary:"Требования целевого грейда выполнены", category:"other" };
+    if (/не загружены требования/.test(value)) return { label:"другое", summary:"Нет требований следующего грейда", category:"other" };
+    return { label:"другое", summary:"Причина указана в подробностях", category:"other" };
+  }
+
+  function renderHrSkills(skills) {
+    const shown = state.hrShowAllSkills ? skills : skills.slice(0, 8);
+    const rows = shown.map((item) => {
+      const average = Number(item.avg_level);
+      const required = Number(item.required_avg);
+      const gap = Math.max(0, required - average);
+      const intensity = clamp(gap / 5, 0, 1);
+      return `<div class="hr-skill-row hr-skill-grid" role="row">
+        <div class="hr-skill-name" role="cell">${esc(item.name)}</div>
+        <div class="hr-skill-level" role="cell"><div class="hr-skill-meter" role="img" aria-label="Средний уровень ${number(average, 1)} из 5, требуется ${number(required, 1)} из 5"><span class="hr-skill-fill" style="width:${clamp(average / 5 * 100, 0, 100)}%;opacity:${(0.42 + intensity * 0.58).toFixed(2)}"></span><span class="hr-skill-target" style="left:${clamp(required / 5 * 100, 0, 100)}%"></span></div><div class="hr-skill-scale"><span>0</span><span>5</span></div></div>
+        <div class="hr-skill-number" role="cell">${number(average, 1)}</div>
+        <div class="hr-skill-number" role="cell">${number(required, 1)}</div>
+        <div class="hr-skill-number hr-skill-count" role="cell">${number(item.employees_below)}</div>
+      </div>`;
+    }).join("");
+    return `<div class="hr-skill-table" role="table" aria-label="Проседающие навыки"><div class="hr-skill-head hr-skill-grid" role="row"><span role="columnheader">Навык</span><span role="columnheader">Уровень · 0–5</span><span role="columnheader" class="hr-right">Средний</span><span role="columnheader" class="hr-right">Нужно</span><span role="columnheader" class="hr-right">С разрывом</span></div>${rows || '<p class="hr-empty">Навыков с разрывом сейчас нет.</p>'}</div>${skills.length > 8 ? `<button type="button" class="hr-more" data-hr-skills-toggle aria-expanded="${state.hrShowAllSkills}">${state.hrShowAllSkills ? "Свернуть список" : `Показать все ${number(skills.length)}`}</button>` : ""}`;
+  }
+
+  function renderHrNoRecommendation(items) {
+    if (!items.length) return '<p class="hr-empty">У каждого сотрудника есть рекомендованный шаг.</p>';
+    return `<table class="hr-table hr-no-step-table"><thead><tr><th>Сотрудник</th><th>Роль</th><th>Причина</th></tr></thead><tbody>${items.map((item, index) => {
+      const reason = hrReason(item.reason);
+      return `<tr class="hr-expand-row" data-hr-reason="${index}" tabindex="0" aria-expanded="false"><td><a href="#employee-panel" class="hr-person" data-employee-id="${esc(item.employee_id)}">${esc(item.name)}</a></td><td>${esc(item.role)}</td><td><div class="hr-reason-brief"><span class="hr-reason-tag hr-reason-tag--${reason.category}">${reason.label}</span><span class="hr-reason-summary">${reason.summary}</span><span class="hr-reason-chevron" aria-hidden="true">⌄</span></div></td></tr><tr class="hr-reason-detail" data-hr-detail="${index}" hidden><td colspan="3"><strong>Полная причина</strong><p>${esc(item.reason || "Причина пока не указана.")}</p></td></tr>`;
+    }).join("")}</tbody></table>`;
+  }
+
+  function renderHrParticipation(items) {
+    if (!items.length) return '<p class="hr-empty">Данных об участии пока нет.</p>';
+    const resolved = (item) => Number(item.attended) + Number(item.skipped) + Number(item.declined);
+    const sorted = [...items].sort((a, b) => (resolved(a) === 0) - (resolved(b) === 0) || Number(a.rate) - Number(b.rate) || String(a.title).localeCompare(String(b.title), "ru") || String(a.event_id).localeCompare(String(b.event_id)));
+    return `<table class="hr-table hr-participation-table"><thead><tr><th>Активность</th><th class="hr-right">Участие</th><th class="hr-right">Посещено</th><th class="hr-right">Пропущено</th><th class="hr-right">Отказ</th></tr></thead><tbody>${sorted.map((item) => {
+      const rate = clamp(Number(item.rate) * 100, 0, 100);
+      const status = rate < 50 ? "low" : "high";
+      return `<tr><td class="hr-activity-title">${esc(item.title)}</td><td>${resolved(item) ? `<div class="hr-rate hr-rate--${status}"><span class="hr-rate-track"><span style="width:${rate}%"></span></span><span class="hr-rate-number">${number(rate)}%</span></div>` : '<span class="hr-rate-empty">Нет данных</span>'}</td><td class="hr-right hr-num">${number(item.attended)}</td><td class="hr-right hr-num">${number(item.skipped)}</td><td class="hr-right hr-num">${number(item.declined)}</td></tr>`;
+    }).join("")}</tbody></table>`;
   }
 
   async function loadHr() {
     state.hrLoaded = false;
-    $("#hr-mount").innerHTML = `<div class="grid grid-cols-3 gap-5 mb-8">${[0, 1, 2].map(() => '<div class="card p-6"><div class="skeleton h-4 w-28"></div><div class="skeleton h-10 w-20 mt-5"></div></div>').join("")}</div>${skeleton("table")}`;
+    $("#hr-mount").innerHTML = `<div class="hr-dashboard"><div class="hr-stats">${[0, 1, 2].map(() => '<div class="card hr-stat"><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line skeleton-line--wide"></div></div>').join("")}</div>${skeleton("table")}</div>`;
     try {
       const data = await api("/api/hr/overview");
       if (state.role !== "hr") return;
       const totals = data.totals || {};
-      const weak = Array.isArray(data.weakest_skills) ? data.weakest_skills : [];
+      const weak = Array.isArray(data.weakest_skills) ? data.weakest_skills.filter((item) => Number(item.employees_below) > 0) : [];
+      state.hrSkills = weak;
       const without = Array.isArray(data.no_recommendation) ? data.no_recommendation : [];
       const participation = Array.isArray(data.activity_participation) ? data.activity_participation : [];
-      const totalCards = [
-        ["Сотрудников", totals.employees],
-        ["С разрывами", totals.with_gaps],
-        ["Без рекомендации", totals.no_recommendation],
+      const cards = [
+        ["Сотрудников", totals.employees, "Профилей в обзоре"],
+        ["С разрывами", totals.with_gaps, totals.employees == null ? "Есть разрыв до следующего грейда" : `Из ${number(totals.employees)} сотрудников`],
+        ["Без рекомендованного шага", without.length, "Без предложенной активности"],
       ];
-      $("#hr-mount").innerHTML = `<div class="grid grid-cols-3 gap-5 mb-8">${totalCards.map(([label, value]) => `<div class="card p-6"><p class="eyebrow">${esc(label)}</p><strong class="block text-4xl font-extrabold tracking-tight mt-4">${number(value)}</strong>${value === undefined ? '<p class="text-[11px] text-ink-500 mt-2">Сводное число не передано API</p>' : ""}</div>`).join("")}</div>
-      <div class="space-y-8">
-        <section class="card overflow-hidden"><div class="px-6 pt-6 pb-4"><h2 class="section-title">Проседающие навыки</h2><p class="text-xs text-ink-500 mt-1">Средний уровень команды относительно нужного.</p></div>${table(["Навык", "Средний уровень", "Нужно", "Ниже цели"], weak.map((item) => `<tr><td class="font-extrabold">${esc(item.name)}</td><td>${number(item.avg_level, 1)}</td><td>${number(item.required_avg, 1)}</td><td>${number(item.employees_below)}</td></tr>`), "Навыков с разрывом сейчас нет.")}</section>
-        <section class="card overflow-hidden"><div class="px-6 pt-6 pb-4"><h2 class="section-title">Без рекомендации</h2><p class="text-xs text-ink-500 mt-1">Кому пока не нашёлся подходящий следующий шаг.</p></div>${table(["Сотрудник", "Роль", "Причина"], without.map((item) => `<tr><td><button type="button" class="text-halyk-700 font-extrabold hover:underline hr-person" data-employee-id="${esc(item.employee_id)}">${esc(item.name)}</button></td><td>${esc(item.role)}</td><td>${esc(item.reason)}</td></tr>`), "Сотрудников без рекомендации нет.")}</section>
-        <section class="card overflow-hidden"><div class="px-6 pt-6 pb-4"><h2 class="section-title">Участие по активностям</h2><p class="text-xs text-ink-500 mt-1">Сводная картина прохождения без оценки отдельных сотрудников.</p></div>${table(["Активность", "Посещено", "Пропущено", "Отказ", "Участие"], participation.map((item) => `<tr><td class="font-extrabold">${esc(item.title)}</td><td>${number(item.attended)}</td><td>${number(item.skipped)}</td><td>${number(item.declined)}</td><td class="font-extrabold text-halyk-700">${number(Number(item.rate) <= 1 ? Number(item.rate) * 100 : item.rate)}%</td></tr>`), "Данных об участии пока нет.")}</section>
+      $("#hr-mount").innerHTML = `<div class="hr-dashboard">
+        <div class="hr-stats">${cards.map(([label, value, note]) => `<div class="card hr-stat"><p class="hr-stat-label">${esc(label)}</p><strong class="hr-stat-value">${value == null ? "Нет данных" : number(value)}</strong><p class="hr-stat-note">${esc(note)}</p></div>`).join("")}</div>
+        <section class="card hr-primary"><div class="hr-section-heading"><div><p class="hr-section-kicker">Компетенции команды</p><h2 class="section-title">Проседающие навыки</h2><p>Средний уровень по навыку и требование следующего грейда; риска показывает цель.</p></div><span class="hr-heading-count">${number(weak.length)} ${skillWord(weak.length)}</span></div><div id="hr-skills-list">${renderHrSkills(weak)}</div></section>
+        <div class="hr-lower-grid">
+          <section class="card hr-panel"><div class="hr-section-heading"><div><h2 class="section-title">Без рекомендованного шага</h2><p>Причины, по которым следующий шаг пока не предложен.</p></div><span class="hr-heading-count">${number(without.length)}</span></div><div class="hr-panel-scroll">${renderHrNoRecommendation(without)}</div></section>
+          <section class="card hr-panel"><div class="hr-section-heading"><div><h2 class="section-title">Участие по активностям</h2><p>Сначала активности с самым низким участием.</p></div><span class="hr-heading-count">${number(participation.length)}</span></div><div class="hr-panel-scroll">${renderHrParticipation(participation)}</div></section>
+        </div>
       </div>`;
       state.hrLoaded = true;
     } catch (error) {
@@ -376,14 +411,14 @@ async function api(path, options = {}) {
 
   function renderSelectedFiles() {
     const files = state.selectedFiles;
-    $("#selected-files").innerHTML = files.length ? `<div class="space-y-2">${files.map((file) => `<div class="flex items-center gap-2 rounded-lg bg-surface-muted px-3 py-2 text-xs font-bold text-ink-700">${icon("file", "w-4 h-4 text-halyk-700")}<span>${esc(file.name)}</span><span class="ml-auto text-ink-500 font-medium">${number(file.size / 1024, 1)} КБ</span></div>`).join("")}</div>` : "Файлы пока не выбраны.";
+    $("#selected-files").innerHTML = files.length ? files.map((file) => `<div class="selected-file"><span class="selected-file__type">${esc(file.name.split(".").pop().toUpperCase())}</span><span><strong>${esc(file.name)}</strong><small>${number(file.size / 1024, 1)} КБ</small></span><span class="selected-file__status">Выбран</span></div>`).join("") : "Файлы пока не выбраны.";
   }
 
   function renderUploadResult(result) {
     const loaded = result.loaded || {};
     const ids = Array.isArray(result.employee_ids) ? result.employee_ids : [];
     const warnings = Array.isArray(result.warnings) ? result.warnings : [];
-    $("#data-mount").innerHTML = `<section class="card p-6"><div class="flex items-center gap-3 mb-5"><span class="w-9 h-9 grid place-items-center rounded-lg bg-halyk-50 text-halyk-700">${icon("check")}</span><div><h2 class="text-lg font-extrabold">Загрузка завершена</h2><p class="text-xs text-ink-500">Проверьте загруженные записи и откройте профиль.</p></div></div><div class="grid grid-cols-5 gap-4">${[["Сотрудники", loaded.employees], ["Активности", loaded.events], ["Навыки", loaded.skills], ["Профили ролей", loaded.role_profiles], ["Строки истории", loaded.history_rows]].map(([label, value]) => `<div class="rounded-xl bg-surface-muted p-4"><strong class="text-2xl font-extrabold">${number(value)}</strong><p class="text-[11px] text-ink-500 mt-1">${esc(label)}</p></div>`).join("")}</div><h3 class="text-sm font-extrabold mt-7 mb-3">Загруженные профили</h3>${ids.length ? `<div class="grid grid-cols-3 gap-3">${ids.map((id) => { const employee = state.employees.find((item) => String(item.employee_id) === String(id)); return `<button type="button" class="rounded-xl border border-surface-line p-4 text-left hover:border-halyk-400 hover:bg-halyk-50 transition-colors uploaded-person" data-employee-id="${esc(id)}"><span class="block text-sm font-extrabold">${esc(employee?.name || id)}</span><span class="block text-[11px] text-ink-500 mt-1">${esc(employee?.role || "Открыть профиль")}</span><span class="inline-flex items-center gap-1 text-[11px] font-extrabold text-halyk-700 mt-3">Профиль ${icon("arrow", "w-3.5 h-3.5")}</span></button>`; }).join("")}</div>` : '<p class="text-xs text-ink-500">Новых профилей в ответе нет.</p>'}${warnings.length ? `<div class="mt-6 rounded-xl bg-[#FFF4DF] p-4 text-xs text-[#875700]"><p class="font-extrabold mb-2">Предупреждения</p><ul class="list-disc pl-5 space-y-1">${warnings.map((warning) => `<li>${esc(typeof warning === "string" ? warning : JSON.stringify(warning))}</li>`).join("")}</ul></div>` : ""}</section>`;
+    $("#data-mount").innerHTML = `<section class="card upload-result"><h2>Загрузка завершена</h2><p class="muted">Проверьте загруженные записи и откройте профиль.</p><div class="upload-counts">${[["Сотрудники", loaded.employees], ["Активности", loaded.events], ["Навыки", loaded.skills], ["Профили ролей", loaded.role_profiles], ["Строки истории", loaded.history_rows]].map(([label, value]) => `<div class="upload-count"><strong>${number(value)}</strong><span>${esc(label)}</span></div>`).join("")}</div><h3>Загруженные профили</h3>${ids.length ? `<div class="uploaded-grid">${ids.map((id) => { const employee = state.employees.find((item) => String(item.employee_id) === String(id)); return `<button type="button" class="uploaded-person" data-employee-id="${esc(id)}"><strong>${esc(employee?.name || id)}</strong>${employee?.role ? `<small>${esc(employee.role)}</small>` : ""}<span>Открыть профиль ${icon("arrow", "icon--sm")}</span></button>`; }).join("")}</div>` : '<p class="muted">Новых профилей в ответе нет.</p>'}${warnings.length ? `<div class="warnings"><strong>Предупреждения</strong><ul>${warnings.map((warning) => `<li>${esc(typeof warning === "string" ? warning : JSON.stringify(warning))}</li>`).join("")}</ul></div>` : ""}</section>`;
   }
 
   async function refreshAfterDataChange() {
@@ -437,7 +472,7 @@ async function api(path, options = {}) {
       if (result?.status !== "ok") throw new Error("Сервер не подтвердил сброс данных.");
       state.uploadResult = null;
       await refreshAfterDataChange();
-      $("#data-mount").innerHTML = `<div class="card p-6 flex items-center gap-3 text-sm font-extrabold text-halyk-700">${icon("check")} Исходные данные восстановлены.</div>`;
+      $("#data-mount").innerHTML = `<div class="card data-success">${icon("check")} Исходные данные восстановлены.</div>`;
     } catch (error) {
       $("#data-mount").innerHTML = errorCard(error.message, "reset", "Не удалось сбросить данные");
     } finally {
@@ -465,7 +500,24 @@ async function api(path, options = {}) {
   document.addEventListener("click", (event) => { if (!$("#employee-picker").contains(event.target)) closeOptions(); });
   $("#recommend-mount").addEventListener("click", (event) => { const button = event.target.closest(".complete-button"); if (button) completeActivity(button.dataset.eventId, button); });
   $("#skills-mount").addEventListener("click", (event) => { if (event.target.closest("#toggle-skills")) { state.showAllSkills = !state.showAllSkills; renderSkills(); } });
-  $("#hr-mount").addEventListener("click", (event) => { const person = event.target.closest(".hr-person"); if (person) selectEmployee(person.dataset.employeeId); });
+  $("#hr-mount").addEventListener("click", (event) => {
+    const person = event.target.closest(".hr-person");
+    if (person) { event.preventDefault(); selectEmployee(person.dataset.employeeId); return; }
+    if (event.target.closest("[data-hr-skills-toggle]")) {
+      state.hrShowAllSkills = !state.hrShowAllSkills;
+      $("#hr-skills-list").innerHTML = renderHrSkills(state.hrSkills || []);
+      return;
+    }
+    const row = event.target.closest("[data-hr-reason]");
+    if (row) {
+      const detail = $("#hr-mount").querySelector(`[data-hr-detail="${row.dataset.hrReason}"]`);
+      detail.hidden = !detail.hidden;
+      row.setAttribute("aria-expanded", String(!detail.hidden));
+    }
+  });
+  $("#hr-mount").addEventListener("keydown", (event) => {
+    if ((event.key === "Enter" || event.key === " ") && event.target.matches("[data-hr-reason]")) { event.preventDefault(); event.target.click(); }
+  });
   $("#upload-files").addEventListener("change", (event) => { state.selectedFiles = [...event.target.files]; renderSelectedFiles(); });
   const dropZone = $("#drop-zone");
   ["dragenter", "dragover"].forEach((name) => dropZone.addEventListener(name, (event) => { event.preventDefault(); dropZone.classList.add("drag-over"); }));

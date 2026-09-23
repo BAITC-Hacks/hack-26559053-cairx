@@ -5,175 +5,53 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="light" />
   <title>Career Quest — маршрут развития</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: { sans: ['Manrope', 'sans-serif'] },
-          colors: {
-            halyk: { 50:'#E6F4F0', 100:'#C0E4DA', 200:'#8ACFBD', 400:'#31B99B', 500:'#00A37F', 600:'#00896B', 700:'#007057', 800:'#005744', 900:'#003D30' },
-            ink: { 900:'#0B1F1A', 700:'#2C4A42', 500:'#5B7A72', 300:'#9CB3AC' },
-            surface: { DEFAULT:'#FFFFFF', muted:'#F4F8F6', line:'#E2EBE7' }
-          },
-          boxShadow: { card:'0 8px 30px rgba(11,31,26,.045)' }
-        }
-      }
-    };
-  </script>
-  <style>
-    :root { color-scheme: light; }
-    * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
-    body { min-width: 1024px; font-family: Manrope, sans-serif; }
-    [hidden] { display: none !important; }
-    button, input { font: inherit; }
-    button { cursor: pointer; }
-    button:disabled { cursor: not-allowed; opacity: .55; }
-    :focus-visible { outline: 3px solid #8ACFBD; outline-offset: 3px; }
-    .card { background:#fff; border:1px solid #E2EBE7; border-radius:1rem; box-shadow:0 8px 30px rgba(11,31,26,.045); }
-    .button-primary, .button-secondary { display:inline-flex; align-items:center; justify-content:center; gap:.55rem; min-height:2.85rem; padding:.6rem 1.15rem; border-radius:.75rem; font-size:.82rem; font-weight:800; transition:background-color .2s, border-color .2s, transform .2s; }
-    .button-primary { background:#00896B; color:#fff; border:1px solid #00896B; }
-    .button-primary:hover:not(:disabled) { background:#007057; border-color:#007057; transform:translateY(-1px); }
-    .button-secondary { background:#fff; color:#007057; border:1px solid #8ACFBD; }
-    .button-secondary:hover:not(:disabled) { background:#E6F4F0; }
-    .nav-tab { display:inline-flex; align-items:center; gap:.55rem; position:relative; min-height:3.35rem; padding:0 1.3rem; color:#5B7A72; font-size:.84rem; font-weight:800; }
-    .nav-tab:hover, .nav-tab.active { color:#007057; }
-    .nav-tab.active:after { content:""; position:absolute; bottom:-1px; left:1.3rem; right:1.3rem; height:3px; border-radius:3px 3px 0 0; background:#00896B; }
-    .role-option input { position:absolute; opacity:0; }
-    .role-option span { display:block; padding:.58rem 1rem; color:#5B7A72; font-size:.78rem; font-weight:800; border-radius:.65rem; transition:background-color .2s,color .2s; }
-    .role-option input:checked + span { color:#007057; background:#fff; box-shadow:0 2px 8px rgba(11,31,26,.08); }
-    .role-option input:focus-visible + span { outline:3px solid #8ACFBD; outline-offset:2px; }
-    .eyebrow { color:#00896B; text-transform:uppercase; letter-spacing:.16em; font-size:.67rem; font-weight:800; }
-    .section-title { color:#0B1F1A; font-size:1.5rem; line-height:1.2; letter-spacing:-.045em; font-weight:800; }
-    .selector-list { position:absolute; z-index:30; top:calc(100% + .5rem); left:0; right:0; max-height:19rem; overflow:auto; padding:.4rem; background:#fff; border:1px solid #E2EBE7; border-radius:1rem; box-shadow:0 20px 50px rgba(11,31,26,.14); }
-    .selector-option { width:100%; display:flex; align-items:center; justify-content:space-between; padding:.8rem .9rem; text-align:left; border-radius:.7rem; }
-    .selector-option:hover, .selector-option:focus-visible { background:#E6F4F0; outline:none; }
-    .quest-card { background:#fff; border:1px solid #E2EBE7; border-radius:1rem; box-shadow:0 8px 30px rgba(11,31,26,.045); padding:1.5rem; }
-    .factor-pill { display:inline-flex; max-width:100%; align-items:center; gap:.35rem; padding:.43rem .7rem; border:1px solid #C0E4DA; border-radius:999px; color:#005744; background:#E6F4F0; font-size:.69rem; line-height:1.25; font-weight:700; }
-    .segment { height:.7rem; flex:1; border-radius:.25rem; background:#E2EBE7; transition:background-color 600ms cubic-bezier(.22,1,.36,1), transform 600ms cubic-bezier(.22,1,.36,1); }
-    .segment.filled { background:#00896B; }
-    .segment.newly-filled { transform:scaleY(1.1); }
-    .skill-meter { position:relative; display:flex; gap:.25rem; }
-    .skill-marker { position:absolute; top:-.3rem; height:1.3rem; width:2px; background:#0B1F1A; transform:translateX(-1px); z-index:2; }
-    .skill-marker:after { content:""; position:absolute; top:-.3rem; left:50%; width:.42rem; height:.42rem; border-radius:50%; background:#0B1F1A; transform:translateX(-50%); }
-    .ring-progress { transition:stroke-dashoffset 600ms cubic-bezier(.22,1,.36,1); }
-    .xp-fill { transition:width 600ms cubic-bezier(.22,1,.36,1); }
-    .skeleton { background:linear-gradient(90deg,#EAF1ED 25%,#F6FAF8 50%,#EAF1ED 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; border-radius:.55rem; }
-    @keyframes shimmer { to { background-position-x:-200%; } }
-    .status-icon { width:2rem; height:2rem; display:grid; place-items:center; border-radius:.65rem; flex:none; }
-    .status-completed { background:#E6F4F0; color:#007057; }
-    .status-no_show { background:#FFF4DF; color:#A86600; }
-    .status-dropped { background:#FDEAEA; color:#B64040; }
-    .status-declined { background:#F2EDF9; color:#7B5AA5; }
-    .status-overdue { background:#FFEDE2; color:#C46B37; }
-    .status-in_progress { background:#E9F2FF; color:#4678B7; }
-    .data-drop.drag-over { border-color:#00896B; background:#E6F4F0; }
-    .table-zebra tbody tr:nth-child(even) { background:#F4F8F6; }
-    .table-zebra th { color:#5B7A72; text-transform:uppercase; letter-spacing:.1em; font-size:.64rem; font-weight:800; }
-    .table-zebra td { color:#2C4A42; font-size:.78rem; }
-    .table-zebra th, .table-zebra td { padding:.85rem 1rem; text-align:left; border-bottom:1px solid #E2EBE7; }
-    .table-zebra tbody tr:last-child td { border-bottom:0; }
-    .toast-item { animation:toast-in .25s ease-out; }
-    @keyframes toast-in { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
-    @media (prefers-reduced-motion:reduce) { .segment,.ring-progress,.xp-fill { transition:none; } .skeleton { animation:none; } }
-  </style>
+  <link rel="stylesheet" href="/static/style.css" />
   <script src="/static/app.js" defer></script>
 </head>
-<body class="bg-surface-muted text-ink-900 antialiased">
-  <header class="bg-white border-b border-surface-line">
-    <div class="max-w-6xl mx-auto px-8">
-      <div class="h-24 flex items-center justify-between">
-        <div class="flex items-center gap-3.5">
-          <div class="w-12 h-12 rounded-xl bg-halyk-600 text-white grid place-items-center text-base font-extrabold tracking-tight" aria-hidden="true">CQ</div>
-          <div><p class="text-xl leading-6 font-extrabold tracking-tight">Career Quest</p><p class="text-[11px] font-semibold text-ink-500 mt-1">Карьера с понятным маршрутом</p></div>
-        </div>
-        <div class="flex items-center gap-6">
-          <span class="flex items-center gap-2 text-xs font-bold text-ink-500"><span class="w-2 h-2 rounded-full bg-halyk-500"></span>Внутренняя платформа развития</span>
-          <fieldset class="flex p-1 rounded-xl bg-surface-muted border border-surface-line" aria-label="Роль">
-            <legend class="sr-only">Роль</legend>
-            <label class="role-option cursor-pointer"><input type="radio" name="role" value="employee" checked /><span>Сотрудник</span></label>
-            <label class="role-option cursor-pointer"><input type="radio" name="role" value="hr" /><span>HR</span></label>
-          </fieldset>
-        </div>
-      </div>
-      <nav class="flex gap-2 border-t border-surface-line" aria-label="Разделы">
+<body>
+  <header class="site-header">
+    <div class="site-header__inner">
+      <div class="brand"><span class="brand__mark" aria-hidden="true">CQ</span><span class="brand__copy"><strong>Career Quest</strong><small>Карьера с понятным маршрутом</small></span></div>
+      <nav class="site-nav" aria-label="Разделы">
         <button class="nav-tab active" type="button" data-tab="employee" aria-current="page">Сотрудник</button>
         <button class="nav-tab" type="button" data-tab="hr" id="hr-tab" hidden>HR</button>
         <button class="nav-tab" type="button" data-tab="data">Данные</button>
       </nav>
+      <fieldset class="role-switch" aria-label="Роль">
+        <legend class="sr-only">Роль</legend>
+        <label class="role-option"><input type="radio" name="role" value="employee" checked /><span>Сотрудник</span></label>
+        <label class="role-option"><input type="radio" name="role" value="hr" /><span>HR</span></label>
+      </fieldset>
     </div>
   </header>
-
-  <main class="max-w-6xl mx-auto px-8 py-10">
-    <section id="employee-panel" class="space-y-8" aria-labelledby="employee-heading">
-      <div class="flex items-end justify-between gap-8">
-        <div><p class="eyebrow mb-2">Личный маршрут</p><h1 id="employee-heading" class="text-[38px] leading-tight font-extrabold tracking-[-.055em]">Следующий уровень ближе</h1><p class="mt-2 text-sm text-ink-500">Понятная цель, прозрачные рекомендации и прогресс после каждого шага.</p></div>
-        <div class="w-[350px] relative" id="employee-picker">
-          <label for="employee-search" class="block text-[11px] uppercase tracking-widest font-extrabold text-ink-500 mb-2">Профиль сотрудника</label>
-          <div class="flex items-center gap-3 h-12 px-4 rounded-xl border border-surface-line bg-white shadow-card focus-within:border-halyk-500">
-            <svg class="w-5 h-5 text-ink-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.2 4.2"/></svg>
-            <input id="employee-search" type="search" class="w-full bg-transparent outline-none text-sm text-ink-900 placeholder:text-ink-300" placeholder="Найти по имени" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="employee-options" aria-autocomplete="list" />
-          </div>
+  <main class="page-shell">
+    <section id="employee-panel" class="screen" aria-labelledby="employee-heading">
+      <div class="screen-heading screen-heading--employee">
+        <div><p class="eyebrow">Личный маршрут</p><h1 id="employee-heading">Следующий уровень ближе</h1><p class="muted">Понятная цель, прозрачные рекомендации и прогресс после каждого шага.</p></div>
+        <div class="employee-picker" id="employee-picker">
+          <label for="employee-search" class="field-label">Профиль сотрудника</label>
+          <div class="search-field"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.2 4.2"/></svg><input id="employee-search" type="search" placeholder="Найти по имени" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="employee-options" aria-autocomplete="list" /></div>
           <div id="employee-options" class="selector-list" role="listbox" hidden></div>
-          <p id="employee-list-status" class="text-[11px] text-ink-500 mt-2" role="status"></p>
+          <p id="employee-list-status" class="field-hint" role="status"></p>
         </div>
       </div>
       <div id="employee-list-error"></div>
-      <div id="employee-empty" class="card p-12 text-center">
-        <div class="w-14 h-14 mx-auto grid place-items-center rounded-2xl bg-halyk-50 text-halyk-700">
-          <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.6-3.6 3.1-5.5 7-5.5s6.4 1.9 7 5.5M18 5l1.5 1.5L22 4"/></svg>
-        </div>
-        <h2 class="mt-5 text-xl font-extrabold tracking-tight">Выберите сотрудника</h2>
-        <p class="mt-2 text-sm text-ink-500">Откроем профиль, навыки до следующего грейда и персональные шаги.</p>
-      </div>
-      <div id="employee-content" class="space-y-8" hidden>
+      <div id="employee-empty" class="card empty-state"><span class="empty-state__icon"><svg class="icon--lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.6-3.6 3.1-5.5 7-5.5s6.4 1.9 7 5.5M18 5l1.5 1.5L22 4"/></svg></span><h2>Выберите сотрудника</h2><p>Откроем профиль, навыки до следующего грейда и персональные шаги.</p></div>
+      <div id="employee-content" class="employee-content" hidden>
         <div id="profile-mount"></div>
-        <section aria-labelledby="steps-heading">
-          <div class="flex items-end justify-between mb-5"><div><p class="eyebrow mb-2">Персональные квесты</p><h2 id="steps-heading" class="section-title">Следующие шаги</h2></div><p id="llm-note" class="text-[11px] text-ink-500" hidden>Объяснение сформировано без LLM</p></div>
-          <div id="recommend-mount" class="grid grid-cols-3 gap-5"></div>
-          <details id="not-recommended" class="card mt-5" hidden><summary class="flex items-center justify-between px-6 py-5 cursor-pointer text-sm font-extrabold text-ink-700">Не рекомендуем сейчас <span id="not-recommended-count" class="text-ink-500"></span></summary><div id="not-recommended-mount" class="px-6 pb-5"></div></details>
-        </section>
-        <section aria-labelledby="skills-heading">
-          <div class="mb-5"><p class="eyebrow mb-2">Карта навыков</p><h2 id="skills-heading" class="section-title">Что отделяет от нового грейда</h2></div>
-          <div id="skills-mount"></div>
-        </section>
-        <section aria-labelledby="history-heading">
-          <div class="mb-5"><p class="eyebrow mb-2">Ваш путь</p><h2 id="history-heading" class="section-title">История активностей</h2></div>
-          <div id="history-mount"></div>
-        </section>
+        <section class="content-section" aria-labelledby="steps-heading"><div class="section-heading"><div><p class="eyebrow">Персональные квесты</p><h2 id="steps-heading">Следующие шаги</h2></div><p id="llm-note" class="section-note" hidden>Объяснение сформировано без LLM</p></div><div id="recommend-mount" class="quest-grid"></div><details id="not-recommended" class="card excluded-card" hidden><summary>Не рекомендуем сейчас <span id="not-recommended-count"></span></summary><div id="not-recommended-mount" class="excluded-list"></div></details></section>
+        <section class="content-section" aria-labelledby="skills-heading"><div class="section-heading"><div><p class="eyebrow">Карта навыков</p><h2 id="skills-heading">Что отделяет от нового грейда</h2></div></div><div id="skills-mount"></div></section>
+        <section class="content-section" aria-labelledby="history-heading"><div class="section-heading"><div><p class="eyebrow">Ваш путь</p><h2 id="history-heading">История активностей</h2></div></div><div id="history-mount"></div></section>
       </div>
     </section>
-
-    <section id="hr-panel" class="space-y-8" aria-labelledby="hr-heading" hidden>
-      <div><p class="eyebrow mb-2">Аналитика развития</p><h1 id="hr-heading" class="text-[38px] leading-tight font-extrabold tracking-[-.055em]">Пульс команды</h1><p class="mt-2 text-sm text-ink-500">Разрывы в навыках, доступность рекомендаций и участие в активностях.</p></div>
-      <div id="hr-mount"></div>
-    </section>
-
-    <section id="data-panel" class="space-y-8" aria-labelledby="data-heading" hidden>
-      <div><p class="eyebrow mb-2">Управление данными</p><h1 id="data-heading" class="text-[38px] leading-tight font-extrabold tracking-[-.055em]">Данные платформы</h1><p class="mt-2 text-sm text-ink-500">Загрузите JSON и CSV. Новые профили сразу появятся в поиске.</p></div>
-      <div class="grid grid-cols-[1.5fr_1fr] gap-6">
-        <form id="upload-form" class="card p-6 space-y-5">
-          <div><h2 class="text-lg font-extrabold tracking-tight">Загрузить данные</h2><p class="text-xs text-ink-500 mt-1">Поддерживаются employees.json, events.json, skills.json и activity_history.csv.</p></div>
-          <label id="drop-zone" for="upload-files" class="data-drop flex flex-col items-center justify-center h-52 border-2 border-dashed border-halyk-200 rounded-2xl bg-surface-muted cursor-pointer transition-colors">
-            <span class="w-11 h-11 grid place-items-center rounded-xl bg-halyk-50 text-halyk-700"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 16V3m0 0L7 8m5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg></span>
-            <span class="mt-3 text-sm font-extrabold">Перетащите файлы сюда</span><span class="mt-1 text-xs text-ink-500">или нажмите, чтобы выбрать JSON и CSV</span>
-          </label>
-          <input id="upload-files" name="files" type="file" accept=".json,.csv,application/json,text/csv" multiple class="sr-only" />
-          <div id="selected-files" class="text-xs text-ink-500">Файлы пока не выбраны.</div>
-          <button id="upload-button" class="button-primary" type="submit">Загрузить</button>
-        </form>
-        <div class="card p-6 flex flex-col justify-between">
-          <div><div class="w-11 h-11 grid place-items-center rounded-xl bg-halyk-50 text-halyk-700"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5"/><path d="M12 7v5l3 2"/></svg></div><h2 class="text-lg font-extrabold tracking-tight mt-5">Начать с исходных данных</h2><p class="text-sm text-ink-500 leading-6 mt-2">Сброс вернёт набор, с которым запущена платформа, и обновит список сотрудников.</p></div>
-          <button id="reset-button" type="button" class="button-secondary self-start">Сбросить к исходным данным</button>
-        </div>
-      </div>
+    <section id="hr-panel" class="screen" aria-labelledby="hr-heading" hidden><div class="screen-heading"><div><p class="eyebrow">Аналитика развития</p><h1 id="hr-heading">Пульс команды</h1><p class="muted">Разрывы в навыках, доступность рекомендаций и участие в активностях.</p></div></div><div id="hr-mount"></div></section>
+    <section id="data-panel" class="screen" aria-labelledby="data-heading" hidden>
+      <div class="screen-heading"><div><p class="eyebrow">Управление данными</p><h1 id="data-heading">Данные платформы</h1><p class="muted">Загрузите JSON и CSV. Новые профили сразу появятся в поиске.</p></div></div>
+      <div class="data-layout"><form id="upload-form" class="card upload-panel upload-form"><div><h2>Загрузить данные</h2><p class="muted">Поддерживаются employees.json, events.json, skills.json и activity_history.csv.</p></div><label id="drop-zone" for="upload-files" class="data-drop"><span class="data-drop__icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 16V3m0 0L7 8m5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg></span><strong>Перетащите файлы сюда</strong><span>или нажмите, чтобы выбрать JSON и CSV</span><span class="file-types"><i>JSON</i><i>CSV</i></span></label><input id="upload-files" name="files" type="file" accept=".json,.csv,application/json,text/csv" multiple class="sr-only" /><div id="selected-files" class="selected-files">Файлы пока не выбраны.</div><button id="upload-button" class="button-primary" type="submit">Загрузить</button></form>
+      <div class="card reset-panel"><div><span class="data-drop__icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5"/><path d="M12 7v5l3 2"/></svg></span><h2>Начать с исходных данных</h2><p class="muted">Сброс вернёт набор, с которым запущена платформа, и обновит список сотрудников.</p></div><button id="reset-button" type="button" class="button-secondary">Сбросить к исходным данным</button></div></div>
       <div id="data-mount" aria-live="polite"></div>
     </section>
   </main>
-  <div id="toast-region" class="fixed bottom-6 right-6 z-50 space-y-2" aria-live="polite" aria-atomic="true"></div>
+  <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
 </body>
 </html>
