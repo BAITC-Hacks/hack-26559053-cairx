@@ -95,7 +95,7 @@
       work_format, preferred_language,
       career_goal:{ target_role:role, target_grade:next_grade },
       skills, completed_activities,
-      history_stats:{ completed:12 + index, no_show:2, dropped:1, declined:1, overdue:0, in_progress:1 },
+      history_stats:{ completed:12 + index, no_show:2, dropped:1, declined:1, overdue:1, in_progress:1 },
       trajectory:{ progress_to_next_grade:Math.min(.8, .62 + index * .02), blocking_skills:[] },
     };
   }
@@ -162,7 +162,6 @@
       ],
       no_recommendation:[
         { employee_id:"E0008", full_name:"Dana Iskakova", role:"Customer Support Specialist", reason:"Не подтверждены базовые навыки для доступных активностей" },
-        { employee_id:"E0184", full_name:"Nurlan Omarov", role:"Data Analyst", reason:"Нет подходящих сессий на выбранный период" },
       ],
       activity_participation:[
         { event_id:"EV_012", title:"System Design Workshop", completed:120, no_show:14, dropped:6, declined:5, rate:.83 },
