@@ -34,24 +34,64 @@ Python 3.12, FastAPI, Uvicorn, Pydantic v2, pandas, OpenAI Python SDK; HTML, л�
 
 Повторяющиеся элементы оформлены классами `card`, `button-*`, `factor-pill`, `skill-*`, `profile-*`, `quest-*`, `hr-*`, `nav-tab`, `data-drop`. Разметка создаётся тем же `static/app.js`; API и расчёт рекомендации оформлением не меняются. Страница загружает только `/`, `/static/...` и запросы `/api/...`; при отключённом интернете шрифт и CSS остаются доступными через локальный сервер.
 
-## Требования
+## Быстрый запуск
 
-Docker с Compose v2.24+ и свободный порт `8000` для контейнера либо Python 3.12+ для локального запуска и тестов. Ключ LLM для основной проверки не нужен.
+Требуются Docker с Compose v2.24+ и свободный порт `8000`. Ключ LLM для основной проверки не нужен.
 
-## Установка
+### Docker Compose — рекомендуемый способ
 
-Из корня проекта на Linux/macOS:
+Клонируйте репозиторий и перейдите в его каталог:
 
-```sh
-python3 -m venv BackendAI/.venv
-BackendAI/.venv/bin/python -m pip install -r BackendAI/requirements.txt
+```bash
+git clone https://github.com/BAITC-Hacks/hack-26559053-cairx.git
+cd hack-26559053-cairx
 ```
 
-На Windows используйте `BackendAI/.venv/Scripts/python.exe` вместо `BackendAI/.venv/bin/python`. В контейнере зависимости устанавливаются при сборке.
+Соберите и запустите приложение одной командой:
+
+```bash
+docker compose up --build --wait --wait-timeout 60
+```
+
+Команда запускает контейнер в фоне и завершается после успешного `/api/health`. Файл `.env` необязателен: без LLM-ключей автоматически используется локальное объяснение.
+
+- Интерфейс: <http://localhost:8000>
+- Swagger UI: <http://localhost:8000/docs>
+- Health check: <http://localhost:8000/api/health>
+
+```bash
+# Логи
+docker compose logs -f app
+
+# Остановка
+docker compose down
+```
+
+Для live-объяснений скопируйте пример, добавьте собственный ключ провайдера и повторите команду запуска:
+
+```bash
+cp .env.example .env
+```
+
+Не добавляйте реальные ключи в `.env.example` или другие файлы репозитория. Локальный `.env` исключён из Git.
+
+### Локальный запуск без Docker
+
+Нужен Python 3.12+. На Linux/macOS из корня проекта:
+
+```bash
+python3 -m venv BackendAI/.venv
+BackendAI/.venv/bin/python -m pip install -r BackendAI/requirements.txt
+BackendAI/.venv/bin/python BackendAI/run.py
+```
+
+На Windows используйте `BackendAI/.venv/Scripts/python.exe` вместо `BackendAI/.venv/bin/python`. Скрипт `BackendAI/run.py --llm openai` может запросить ключ скрытым вводом для текущего процесса; также доступны `--llm nvidia` и `--llm both`. `BackendAI/set_llm_env.ps1` сохраняет ключ как пользовательскую переменную Windows.
+
+Образ содержит backend, dataset и `static/`; дополнительные volumes для Docker-запуска не требуются. После изменений кода повторите команду запуска с `--build`.
 
 ## Переменные окружения
 
-Образец для Compose — корневой `.env.example`. Приложение читает переменные процесса, а не файл `.env`; Docker Compose может передать ему необязательный корневой `.env`. Для LLM скопируйте `cp .env.example .env` и заполните ключ провайдера. `.env` исключён из Git; не добавляйте секреты в репозиторий.
+Образец конфигурации — корневой `.env.example`. Приложение читает переменные процесса, а Docker Compose передаёт ему необязательный корневой `.env`.
 
 | Переменная | Значение по умолчанию / назначение |
 | --- | --- |
@@ -64,14 +104,6 @@ BackendAI/.venv/bin/python -m pip install -r BackendAI/requirements.txt
 | `OPENAI_API_KEY`, `NVIDIA_API_KEY` | Необязательные ключи провайдеров |
 | `OPENAI_MODEL`, `NVIDIA_MODEL` | `gpt-4o-mini`, `meta/llama-3.1-70b-instruct` |
 | `LLM_TIMEOUT_SECONDS`, `LLM_TOTAL_TIMEOUT_SECONDS` | 8 секунд на провайдера, 9 секунд на все объяснения |
-
-## Запуск
-
-Из корня одной командой: `docker compose up --build --wait --wait-timeout 60`. Compose собирает образ, запускает приложение в фоне и возвращает успех после `/api/health`. Локально после установки зависимостей: `BackendAI/.venv/bin/python BackendAI/run.py` (в Windows замените путь к Python). Интерфейс: `http://localhost:8000/`; интерактивное API: `/docs`; health check: `/api/health`; схема: `/api/v1/openapi.json`. Логи контейнера: `docker compose logs -f app`; остановка: `docker compose down`. При отсутствующем или невалидном обязательном файле датасета запуск завершается с ошибкой.
-
-Образ содержит backend, датасет и `static/`; Compose не требует монтирования локальных файлов. После изменений кода повторите команду запуска с `--build`.
-
-В Windows `BackendAI/run.py --llm openai` запрашивает ключ скрытым вводом для текущего процесса; доступны `--llm nvidia` и `--llm both`. Скрипт `BackendAI/set_llm_env.ps1` сохраняет ключ как пользовательскую переменную Windows. Наличие ключа не доказывает успешный запрос: проверяйте `llm_used` и `explanation_source`.
 
 ## Порядок проверки основного сценария
 
@@ -156,7 +188,7 @@ raw = 10 × Σ(r_s − c_s)
 
 Штатный автономный режим: запустите `docker compose up --build --wait --wait-timeout 60` без `.env` и выполните сценарий выше. Исходный датасет уже находится в образе. Поиск сотрудников, профиль, числовой скоринг, объяснения, завершение активности, HR-срез, загрузка и сброс работают без внешнего сервиса. В ответе `POST /api/recommend` будет `llm_used: false`, а у карточек `explanation_source: "template"` и `explanation_fallback_reason: "not_configured"`. Порядок рекомендаций и `factors` совпадают с режимом LLM. Логин и регистрация не нужны; переключатель роли в интерфейсе не является авторизацией. Проверочные профили в `BackendAI/tests/fixtures/jury/` искусственные, автоматически не загружаются и не имеют специальных веток в алгоритме.
 
-Для проверки LLM-пути скопируйте `.env.example` в `.env`, добавьте собственный ключ провайдера и перезапустите Compose командой `docker compose up --build`. Успешный вызов помечается `llm_used: true` и `explanation_source: "openai"`; при ошибке или таймауте используется тот же локальный шаблон. Ключ нужен только для текста объяснения и не требуется для проверки основного сценария. Не добавляйте реальные ключи в `.env.example` или другие файлы репозитория.
+Для проверки LLM-пути скопируйте `.env.example` в `.env`, добавьте собственный ключ провайдера и повторите команду запуска с `--build` и `--wait`. Успешный вызов помечается `llm_used: true` и `explanation_source: "openai"`; при ошибке или таймауте используется тот же локальный шаблон. Ключ нужен только для текста объяснения и не требуется для проверки основного сценария. Не добавляйте реальные ключи в `.env.example` или другие файлы репозитория.
 
 ## Тесты и запуск
 
