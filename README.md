@@ -53,7 +53,8 @@ cp .env.example .env
 | `HOST`, `PORT` | Адрес и порт Uvicorn; по умолчанию `0.0.0.0:8000` |
 | `OPENAI_API_KEY`, `NVIDIA_API_KEY` | Необязательные ключи LLM-провайдеров |
 | `OPENAI_MODEL`, `NVIDIA_MODEL` | Используемые модели провайдеров |
-| `LLM_TIMEOUT_SECONDS` | Таймаут LLM-провайдера |
+| `LLM_TIMEOUT_SECONDS` | Таймаут одного LLM-провайдера |
+| `LLM_TOTAL_TIMEOUT_SECONDS` | Общий deadline объяснений; по умолчанию 9 секунд |
 | `DATA_DIR` | Каталог исходного dataset внутри backend |
 | `SNAPSHOT_DATE` | Дата расчёта стажа, истории и доступности сессий |
 | `MAX_UPLOAD_BYTES` | Максимальный общий размер upload batch |
