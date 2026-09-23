@@ -41,7 +41,7 @@ class Dataset:
         by_employee = {key: [] for key in self.employees}
         active = sorted(
             (row for row in self.history.values() if row.date <= self.snapshot_date),
-            key=lambda row: (row.date, row.record_id),
+            key=lambda row: (row.date, row.record_id in self.simulated_ids, row.record_id),
         )
         for row in active:
             by_employee[row.employee_id].append(row)
@@ -215,16 +215,19 @@ class DataStore:
         pending = [row for row in old.history_by_employee[employee_id]
                    if row.event_id == event_id and row.status in ("in_progress", "overdue")]
         history = dict(old.history)
+        sequence = 1
+        while f"SIM_{sequence:08d}" in history:
+            sequence += 1
+        record_id = f"SIM_{sequence:08d}"
         if pending:
-            record_id = max(pending, key=lambda row: (row.date, row.record_id)).record_id
-            row = history[record_id].model_copy(update={
-                "date": self.snapshot_date, "status": "completed", "completion_pct": 100,
+            latest = max(pending, key=lambda row: (row.date, row.record_id))
+            # Use a monotonic ID so multiple same-day completions replay in completion order.
+            row = latest.model_copy(update={
+                "record_id": record_id, "date": self.snapshot_date,
+                "status": "completed", "completion_pct": 100,
             })
+            del history[latest.record_id]
         else:
-            sequence = 1
-            while f"SIM_{sequence:08d}" in history:
-                sequence += 1
-            record_id = f"SIM_{sequence:08d}"
             row = HistoryRecord(
                 record_id=record_id, employee_id=employee_id, event_id=event_id,
                 date=self.snapshot_date, status="completed", completion_pct=100,
