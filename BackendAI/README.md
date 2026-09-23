@@ -145,6 +145,13 @@ review-date replay, course ceilings, concurrent completion, upload merges and
 rollback, reset, error responses, HR counts and LLM provider failures/timeouts.
 Controlled fixtures are used only for edge cases in tests.
 
+Verified locally: **37 tests pass**, Python 3.13.5 (the existing workspace
+virtual environment); bytecode compilation and `pip check` also pass.
+Python 3.12 is the project target but was not available for this local run.
+The installed Starlette emits one test-client deprecation warning about httpx.
+Provider failures and successes are simulated in tests; no paid live API calls
+were made.
+
 State is intentionally in memory: use a single server worker. Restart/reset
 discards uploads and simulated progress. The API has no authentication; the
 frontend role toggle in the source requirements is a presentation convention,
