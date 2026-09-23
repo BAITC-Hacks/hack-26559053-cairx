@@ -98,7 +98,7 @@ curl --fail -X POST http://localhost:8000/api/recommend \
 Тесты backend не требуют внешних API:
 
 ```bash
-python -m pytest BackendAI/tests -q
+docker compose run --rm app python -m pytest tests -q
 ```
 
 ## Известные ограничения
