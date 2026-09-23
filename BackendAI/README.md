@@ -48,14 +48,17 @@ python -m venv .venv
 ```
 
 On Linux/macOS the equivalent interpreter is `.venv/bin/python`.
-The API listens on `http://localhost:8000`, with interactive docs at `/docs`
-and OpenAPI at `/api/v1/openapi.json`. Startup fails clearly if a required
-dataset file is missing or invalid. Frontend and Docker files are outside this change.
+The API listens on `http://localhost:8000`, serves the frontend at `/` and
+`/static/`, with interactive docs at `/docs` and OpenAPI at
+`/api/v1/openapi.json`. Startup fails clearly if a required dataset file is
+missing or invalid. From the repository root, `docker compose up --build`
+builds and starts the same application on port 8000.
 
 ## Configuration
 
-Settings come from the process environment; `.env` files are deliberately not
-loaded. `BackendAI/.env.example` lists example values. For example, set
+Settings come from the process environment; the application itself does not
+load `.env` files. Docker Compose loads an optional root `.env` file into the
+container. `BackendAI/.env.example` lists example values. For a local run, set
 `$env:OPENAI_API_KEY = "..."` in PowerShell before starting the process.
 Never commit keys or `.env` files.
 
@@ -215,8 +218,7 @@ review-date replay, course ceilings, concurrent completion, upload merges and
 rollback, reset, error responses, HR counts and LLM provider failures/timeouts.
 Controlled fixtures are used only for edge cases in tests.
 
-Verified locally: **58 tests pass**, Python 3.13.5 (the existing workspace
-virtual environment); bytecode compilation and `pip check` also pass.
+Verified locally after integration: **60 tests pass**, Python 3.13.
 Python 3.12 is the project target but was not available for this local run.
 The installed Starlette emits one test-client deprecation warning about httpx.
 Provider failures and successes are simulated in automated tests.

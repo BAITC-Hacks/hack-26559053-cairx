@@ -13,6 +13,21 @@ def upload(client, filename, payload, field="files"):
     return client.post("/api/upload", files=[(field, (filename, content))])
 
 
+def test_static_files_are_independent_of_cwd(config, monkeypatch, tmp_path):
+    from fastapi.testclient import TestClient
+    from app.main import create_app
+
+    monkeypatch.chdir(tmp_path)
+    with TestClient(create_app(config)) as client:
+        index = client.get("/")
+        assert index.status_code == 200
+        assert index.headers["content-type"].startswith("text/html")
+        assert "Career Quest" in index.text
+        script = client.get("/static/app.js")
+        assert script.status_code == 200
+        assert "async function api" in script.text
+
+
 def test_real_dataset_and_profile_contract(client):
     health = client.get("/api/health").json()
     assert health == {"status": "ok", "llm_available": False, "employees_loaded": 200,

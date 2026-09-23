@@ -273,3 +273,20 @@ async def test_history_sentence_comes_from_recorded_facts(store, config, attende
     assert expected in item.explanation
     if attended and not skipped and not declined:
         assert "нет завершений" not in item.explanation
+
+
+@pytest.mark.asyncio
+async def test_configured_openai_key_uses_primary_explanation(store, config, monkeypatch):
+    data = store.snapshot()
+    employee = data.employees["E0001"]
+    items = rank(data, employee)[0]
+    working = provider(result=response({"explanation": "A course-specific explanation of practical benefit and expected progress."}))
+    monkeypatch.setattr("app.services.explain.AsyncOpenAI", lambda **kwargs: working)
+    configured = config.model_copy(update={
+        "OPENAI_API_KEY": config.OPENAI_API_KEY.__class__("test-key"),
+    })
+    explainer = Explainer(configured)
+    assert explainer.available
+    assert await explainer.explain(data, employee, items) is True
+    assert all(item.explanation_source == "openai" for item in items)
+    await explainer.close()

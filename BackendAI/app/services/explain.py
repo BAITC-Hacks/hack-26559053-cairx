@@ -125,12 +125,14 @@ class Explainer:
         self.total_timeout = settings.LLM_TOTAL_TIMEOUT_SECONDS
         self.cache = OrderedDict()
         self.providers = []
+        configured = False
         for name, key, model, base_url in (
             ("openai", settings.OPENAI_API_KEY, settings.OPENAI_MODEL, "https://api.openai.com/v1"),
             ("nvidia", settings.NVIDIA_API_KEY, settings.NVIDIA_MODEL, "https://integrate.api.nvidia.com/v1"),
         ):
             if not key.get_secret_value():
                 continue
+            configured = True
             try:
                 client = AsyncOpenAI(
                     api_key=key.get_secret_value(), base_url=base_url, timeout=self.timeout, max_retries=0,
@@ -138,6 +140,8 @@ class Explainer:
                 self.providers.append((name, model, client))
             except Exception as exc:
                 logger.warning("Unable to initialize %s: %s", name, type(exc).__name__)
+        if not configured:
+            logger.info("LLM unavailable: OPENAI_API_KEY and NVIDIA_API_KEY are unset; using template explanations")
 
     @property
     def available(self) -> bool:

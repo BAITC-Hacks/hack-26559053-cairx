@@ -1,10 +1,12 @@
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from pathlib import Path
 
 from fastapi import APIRouter, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.concurrency import run_in_threadpool
 
@@ -22,6 +24,7 @@ from app.services.scoring import rank
 
 logger = setup_logging()
 router = APIRouter()
+STATIC_DIR = Path(__file__).resolve().parents[2] / "static"
 
 
 def get_employee(data: Dataset, employee_id: str):
@@ -194,9 +197,11 @@ def create_app(config: Settings | None = None) -> FastAPI:
             "detail": "An internal server error occurred.",
         })
 
-    @application.get("/", tags=["System"])
+    application.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+    @application.get("/", include_in_schema=False)
     def root():
-        return {"message": "Career Quest API", "version": config.VERSION, "docs": "/docs", "health": "/api/health"}
+        return FileResponse(STATIC_DIR / "index.html")
 
     application.include_router(router, prefix="/api")
     # Retain the configured version prefix for existing backend clients and health checks.

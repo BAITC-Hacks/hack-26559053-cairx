@@ -81,7 +81,6 @@
     @keyframes toast-in { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
     @media (prefers-reduced-motion:reduce) { .segment,.ring-progress,.xp-fill { transition:none; } .skeleton { animation:none; } }
   </style>
-  <script src="/static/mock.js" defer></script>
   <script src="/static/app.js" defer></script>
 </head>
 <body class="bg-surface-muted text-ink-900 antialiased">
@@ -158,7 +157,7 @@
       <div><p class="eyebrow mb-2">Управление данными</p><h1 id="data-heading" class="text-[38px] leading-tight font-extrabold tracking-[-.055em]">Данные платформы</h1><p class="mt-2 text-sm text-ink-500">Загрузите JSON и CSV. Новые профили сразу появятся в поиске.</p></div>
       <div class="grid grid-cols-[1.5fr_1fr] gap-6">
         <form id="upload-form" class="card p-6 space-y-5">
-          <div><h2 class="text-lg font-extrabold tracking-tight">Загрузить данные</h2><p class="text-xs text-ink-500 mt-1">Несколько файлов за один раз, поле multipart <code>files</code>.</p></div>
+          <div><h2 class="text-lg font-extrabold tracking-tight">Загрузить данные</h2><p class="text-xs text-ink-500 mt-1">Поддерживаются employees.json, events.json, skills.json и activity_history.csv.</p></div>
           <label id="drop-zone" for="upload-files" class="data-drop flex flex-col items-center justify-center h-52 border-2 border-dashed border-halyk-200 rounded-2xl bg-surface-muted cursor-pointer transition-colors">
             <span class="w-11 h-11 grid place-items-center rounded-xl bg-halyk-50 text-halyk-700"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 16V3m0 0L7 8m5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg></span>
             <span class="mt-3 text-sm font-extrabold">Перетащите файлы сюда</span><span class="mt-1 text-xs text-ink-500">или нажмите, чтобы выбрать JSON и CSV</span>
