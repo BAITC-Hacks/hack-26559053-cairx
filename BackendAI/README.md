@@ -75,6 +75,22 @@ An already configured environment key is reused. For NVIDIA use `--llm nvidia`;
 for both providers use `--llm both`. Running without `--llm` retains the normal
 environment-only startup. A `.env` entry alone does not enable a provider.
 
+To save the key as a persistent **Windows user environment variable**, run:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File BackendAI/set_llm_env.ps1
+```
+
+The script asks for the key with hidden input and saves `OPENAI_API_KEY` using
+Windows user environment settings. For NVIDIA, add `-Provider nvidia`.
+It does not save the key in repository files. Blank input leaves the existing
+variable unchanged. Restart VS Code and the backend after saving; already
+running processes retain their old environment. You can then launch normally:
+
+```powershell
+BackendAI/.venv/Scripts/python.exe BackendAI/run.py
+```
+
 With the server running, check a real recommendation from a second terminal:
 
 ```powershell
