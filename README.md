@@ -36,7 +36,7 @@ Python 3.12, FastAPI, Uvicorn, Pydantic v2, pandas, OpenAI Python SDK; HTML, л�
 
 ## Быстрый запуск
 
-Требуются Docker с Compose v2.24+ и свободный порт `8000`. Ключ LLM для основной проверки не нужен.
+Требуются Git, свободный порт `8000` и Docker Desktop для Windows/macOS либо Docker Engine с Compose v2.24+ для Linux. На Windows Docker Desktop должен быть запущен в режиме Linux containers; Python и зависимости отдельно устанавливать не нужно. Ключ LLM для основной проверки не нужен.
 
 ### Docker Compose — рекомендуемый способ
 
