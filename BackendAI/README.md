@@ -107,7 +107,8 @@ that a provider was configured; it does not validate the key or API access.
 | `OPENAI_API_KEY`, `NVIDIA_API_KEY` | Optional; no keys means fully local explanations |
 | `OPENAI_MODEL` | `gpt-4o-mini` |
 | `NVIDIA_MODEL` | `meta/llama-3.1-70b-instruct` |
-| `LLM_TIMEOUT_SECONDS` | 4 seconds per provider; no automatic retries |
+| `LLM_TIMEOUT_SECONDS` | 8 seconds maximum per provider; no automatic retries |
+| `LLM_TOTAL_TIMEOUT_SECONDS` | 9 seconds shared by all explanation calls and provider fallbacks; maximum 9 |
 | `DATA_DIR` | `dataset`, resolved relative to BackendAI, or an absolute path |
 | `SNAPSHOT_DATE` | `2026-10-01`, used for tenure, history and session eligibility |
 | `MAX_UPLOAD_BYTES` | 10 MiB total file content per upload batch |
@@ -159,19 +160,43 @@ also supplies field-level `errors`. Internal errors do not expose exception text
 
 ## Explanations
 
-Selected courses and their numeric factors are sent in one batch to OpenAI,
-then NVIDIA if OpenAI fails, then a local Russian template if neither works.
-Both providers use `temperature=0`, a wall-clock deadline and zero retries.
+Each selected course gets a short Russian paragraph explaining practical benefit,
+relevance to the employee's role and target grade, expected progress, and what
+participation history supports. The prompt includes actual course content and skill
+descriptions from the dataset. Python translates calculated levels/gains/ceilings
+into explicit outcomes (closing a skill gap versus only reducing it), rather than
+asking the LLM to recalculate them or repeat a table of numbers. The exact numeric
+factors remain unchanged in the API. Missing history is explicitly distinguished
+from lack of experience; no on-time completion claims are inferred from counts.
+
+Up to three card explanations run concurrently. Each tries OpenAI, then NVIDIA,
+then a local narrative template. Both providers use `temperature=0` and zero
+retries. The default per-provider timeout is eight seconds, with a shared nine-second
+deadline across all cards and providers. OpenAI uses a strict JSON schema for one
+`explanation` string. NVIDIA uses JSON instructions with the same local validation.
+Invalid JSON/fields, blank text, truncated responses and timeouts trigger fallback.
+The local template also explains grade relevance, course content and history.
+
+Successful LLM paragraphs are cached in memory for five minutes (up to 128 entries).
+The cache key covers all prompt facts and provider/model choices, so changed skills,
+history, target requirements or uploaded course descriptions cannot reuse stale text.
+Fallbacks are never cached. Employee names and IDs are not sent to the providers.
 No external API is called without a configured key, or for an empty ranking.
-Employee names and IDs are not sent. Invalid JSON, missing or invented event
-IDs, blank text, truncated responses and timeouts all trigger fallback.
-The providers never control returned scores or ordering. Numeric factors remain
-the authoritative explanation; generated prose is not semantically verified.
-`llm_used` reports successful external generation; each card also includes
-`explanation_source`. `/health` reports configured clients, not a live provider probe.
+
+`llm_used` is true when at least one card has LLM-generated text, including cached
+text. Each card exposes `explanation_source`, `explanation_model`,
+`explanation_cached` and `explanation_fallback_reason`. Fallback reasons are
+`not_configured`, `timeout`, `authentication`, `rate_limit`, `provider_error`, or
+`invalid_response`; successful cards have a null reason. Inspect these fields to
+distinguish fresh generation, reuse and fallback. Mixed responses can contain both
+LLM and template cards. Safe provider outcome logs contain no keys or employee data.
+`/health` reports configured clients, not a live provider probe.
+The providers never control scores or ordering. Generated prose is not fully
+semantically verified; the numeric factors remain authoritative.
 
 The implementation uses the documented
-[GPT-4o mini Chat Completions endpoint](https://developers.openai.com/api/docs/models/gpt-4o-mini).
+[GPT-4o mini Chat Completions endpoint](https://developers.openai.com/api/docs/models/gpt-4o-mini)
+and [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs?api-mode=chat).
 No external provider is needed for the test suite.
 
 ## Tests and limitations
@@ -188,7 +213,7 @@ review-date replay, course ceilings, concurrent completion, upload merges and
 rollback, reset, error responses, HR counts and LLM provider failures/timeouts.
 Controlled fixtures are used only for edge cases in tests.
 
-Verified locally: **42 tests pass**, Python 3.13.5 (the existing workspace
+Verified locally: **54 tests pass**, Python 3.13.5 (the existing workspace
 virtual environment); bytecode compilation and `pip check` also pass.
 Python 3.12 is the project target but was not available for this local run.
 The installed Starlette emits one test-client deprecation warning about httpx.

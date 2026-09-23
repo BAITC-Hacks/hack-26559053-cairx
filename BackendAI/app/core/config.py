@@ -27,7 +27,8 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = "gpt-4o-mini"
     NVIDIA_API_KEY: SecretStr = SecretStr("")
     NVIDIA_MODEL: str = "meta/llama-3.1-70b-instruct"
-    LLM_TIMEOUT_SECONDS: float = Field(default=4.0, gt=0, le=30)
+    LLM_TIMEOUT_SECONDS: float = Field(default=8.0, gt=0, le=30)
+    LLM_TOTAL_TIMEOUT_SECONDS: float = Field(default=9.0, gt=0, le=9)
     MAX_UPLOAD_BYTES: int = Field(default=10 * 1024 * 1024, gt=0)
 
     # Dataset & Storage

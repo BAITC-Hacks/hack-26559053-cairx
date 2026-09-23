@@ -200,8 +200,13 @@ class Recommendation(BaseModel):
     duration: float
     score: float
     factors: Factors
-    explanation: str = ""
+    explanation: str = Field(default="", description="Narrative explaining practical benefit, grade relevance and history.")
     explanation_source: Literal["openai", "nvidia", "template"] = "template"
+    explanation_model: str | None = None
+    explanation_cached: bool = Field(default=False, description="True when reusing a previously generated LLM explanation.")
+    explanation_fallback_reason: Literal[
+        "not_configured", "timeout", "authentication", "rate_limit", "provider_error", "invalid_response"
+    ] | None = None
 
 
 class ExcludedEvent(BaseModel):
@@ -213,7 +218,7 @@ class ExcludedEvent(BaseModel):
 class RecommendationResponse(BaseModel):
     employee_id: str
     generated_at: datetime
-    llm_used: bool
+    llm_used: bool = Field(description="At least one card uses LLM-generated text, including cached text; inspect each card's explanation_source.")
     recommendations: list[Recommendation]
     not_recommended: list[ExcludedEvent]
 
