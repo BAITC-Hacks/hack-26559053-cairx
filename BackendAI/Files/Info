@@ -1,0 +1,209 @@
+Вот полный, исчерпывающий мастер-документ (Master Context File).
+
+Скопируй весь текст ниже и сохрани его как `MASTER_ARCHITECTURE_AND_CONTEXT.md`. Этот файл ты можешь «скормить» в Cursor, GitHub Copilot или любую LLM, чтобы она поняла всю систему от А до Я, включая бизнес-логику, математику и архитектурные решения (зачем и почему мы делаем именно так).
+
+---
+
+# 🧠 CAREER QUEST: MASTER ARCHITECTURE & CONTEXT DOCUMENT
+
+**Hackathon:** HackAlem AI (Halyk Bank Track)
+**Case:** Career Quest (AI-навигатор развития сотрудника)
+**Tech Stack:** Python, FastAPI, Pandas, OpenAI API, NVIDIA NIM API.
+**System Date (Snapshot):** `2026-10-01` (Все вычисления дат идут относительно этого дня).
+
+---
+
+## 1. ФИЛОСОФИЯ И АРХИТЕКТУРА (ПОЧЕМУ МЫ ДЕЛАЕМ ИМЕННО ТАК)
+
+### 1.1. Разделение логики: Детерминированный скоринг + LLM-обертка
+
+**Почему:** Жюри проверяет решение "ловушечными" профилями (например, скилл низкий, но человек его стабильно прогуливает). LLM плохо считает математику и может галлюцинировать.
+**Решение:** LLM **не принимает** решений. Рекомендации высчитывает жесткий математический алгоритм на Python (Pandas) на основе 4 факторов. LLM получает готовый топ-3 с цифрами и только генерирует красивое человеческое объяснение.
+
+### 1.2. Стопроцентная отказоустойчивость (Zero-Downtime Fallback)
+
+**Почему:** На защите хакатона часто падают внешние API, кончаются токены или интернет. Упавшее демо = 0 баллов.
+**Решение:** Внедрен паттерн `OpenAI -> NVIDIA NIM -> Local Template`. Если OpenAI (gpt-4o-mini) недоступен, запрос уходит в NVIDIA (llama-3.1-70b). Если упало всё, код возвращает f-строку. Демо работает всегда.
+
+### 1.3. Динамическая подгрузка данных (Data Hot-Swap)
+
+**Почему:** Жюри принесет свои файлы `employees.json` и `activity_history.csv`, чтобы проверить алгоритм на своих данных. Если захардкодить ID или закэшировать начальные файлы намертво — проект провалит проверку.
+**Решение:** Эндпоинт `POST /api/upload`, который перезаписывает Pandas DataFrames в оперативной памяти и заставляет движок работать с новыми данными.
+
+---
+
+## 2. ИСТОЧНИКИ ДАННЫХ И СХЕМЫ (THE DATA)
+
+Приложение читает данные из 4 файлов:
+
+**A. `skills.json` (Справочник навыков и грейдов)**
+
+- `skills`: список всех навыков (`skill_id`, `name`, `type`).
+- `role_profiles`: требования к ролям. Для каждой `role` и `grade` есть `required_skills` (минимальный уровень навыка) и `critical_skills` (список навыков, критически важных для промоушена на этот грейд).
+
+**B. `employees.json` (Текущие профили)**
+
+- Поля: `employee_id`, `role`, `grade`, `skills` (текущие уровни, отсутствующий = 0).
+- Цель: Найти текущие навыки и сравнить их с `role_profiles` для **следующего грейда**.
+
+**C. `events.json` (Каталог курсов/активностей)**
+
+- Поля: `event_id`, `type`, `mandatory`, `develops_skills` (список скиллов, которые качает курс: `gain` - прирост, `max_level` - потолок).
+- Ограничение: `mandatory: true` рекомендовать нельзя (это HR-обязаловка).
+
+**D. `activity_history.csv` (Лог действий — КРИТИЧНО)**
+
+- Связывает `employee_id` и `event_id`.
+- Статусы: `completed`, `in_progress`, `dropped` (бросил), `no_show` (прогулял), `declined` (отказался).
+- Ограничение: Нельзя рекомендовать то, что уже `completed` (кроме `EV_036`).
+
+---
+
+## 3. МАТЕМАТИЧЕСКОЕ ЯДРО РЕКОМЕНДАЦИЙ (THE SCORING ENGINE)
+
+Для генерации рекомендации `(employee_id)` алгоритм оценивает **все доступные события**, вычисляя `Total_Score` по 4 факторам (требование ТЗ: минимум 3 фактора).
+
+### Шаг 1: Жёсткие фильтры (Hard Constraints)
+
+Событие выбрасывается (Score = 0), если:
+
+- Оно уже в статусе `completed` в `activity_history`.
+- Оно `mandatory: true`.
+- Текущие навыки сотрудника ниже `prerequisites` события.
+- Уровень сотрудника $\ge$ `max_level` для всех навыков, которые качает курс (курс ничего не даст).
+
+### Шаг 2: Вычисление баллов (Soft Scoring)
+
+Для каждого оставшегося события считаем баллы:
+
+**Фактор 1: Разрыв (Gap Score)**
+
+- Смотрим на `next_grade` сотрудника. Узнаем требуемый уровень навыка.
+- Разрыв = `Required_Level` - `Current_Level`.
+- _Логика:_ Чем больше разрыв, тем больше баллов получает активность, которая его закрывает.
+
+**Фактор 2: Достижимость (Achievability)**
+
+- Оцениваем `gain` события из файла `events.json`.
+- _Логика:_ Если событие дает +2 к навыку, оно ценнее, чем то, которое дает +1.
+
+**Фактор 3: Критичность (Criticality Bonus)**
+
+- Если навык, который качает событие, входит в список `critical_skills` для следующего грейда.
+- _Логика:_ Даем мощный множитель (например, х2 или +50 баллов). Это решает проблему "ловушки": критичный скилл для Senior важнее, чем просто самый низкий скилл.
+
+**Фактор 4: Штраф за историю (History Penalty)**
+
+- Анализируем `activity_history.csv`. Считаем, сколько раз сотрудник получал `dropped`, `no_show` или `declined` по этому `event_type` или конкретному навыку.
+- _Логика:_ За каждый отказ/прогул вычитаем баллы (например, -20 за каждый). Если человек трижды сбросил "Public Speaking", итоговый скор уйдет в минус, и алгоритм предложит другой курс.
+
+---
+
+## 4. СЛОЙ ИНТЕГРАЦИИ LLM (THE EXPLAINER)
+
+После того как Pandas высчитал топ-3 активности, данные передаются в генератор объяснений.
+
+**Код архитектуры LLM (Dual-Provider):**
+
+```python
+import os
+import logging
+from openai import OpenAI
+
+logger = logging.getLogger(__name__)
+
+# Инициализация OpenAI
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"), timeout=4.0) if os.getenv("OPENAI_API_KEY") else None
+
+# Инициализация NVIDIA NIM
+nvidia_client = OpenAI(
+    base_url="https://integrate.api.nvidia.com/v1",
+    api_key=os.getenv("NVIDIA_API_KEY"),
+    timeout=4.0
+) if os.getenv("NVIDIA_API_KEY") else None
+
+def generate_reasoning(employee_name, target_grade, event_title, skill_name, current_level, required_level, is_critical, past_dropouts):
+    # АВАРИЙНЫЙ ШАБЛОН (Уровень 3)
+    fallback_text = (
+        f"Активность «{event_title}» сократит разрыв по навыку {skill_name} "
+        f"({current_level} → {required_level}). Это {'критично' if is_critical else 'полезно'} для грейда {target_grade}."
+    )
+
+    prompt = f"""
+    Объясни сотруднику {employee_name} в 2 предложениях, почему ему рекомендована активность "{event_title}".
+    Факты:
+    - Навык: {skill_name} (текущий {current_level}, надо {required_level} для грейда {target_grade}).
+    - Критичность: {'Блокер для промоушена' if is_critical else 'Развивающий'}.
+    - Прогулов подобных курсов: {past_dropouts}.
+    """
+
+    # УРОВЕНЬ 1: OpenAI
+    if openai_client:
+        try:
+            return openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "system", "content": "Ты HR-советник."}, {"role": "user", "content": prompt}],
+                max_tokens=150, temperature=0.3
+            ).choices[0].message.content.strip()
+        except Exception as e:
+            logger.warning(f"OpenAI failed: {e}. Fallback to NVIDIA.")
+
+    # УРОВЕНЬ 2: NVIDIA NIM
+    if nvidia_client:
+        try:
+            return nvidia_client.chat.completions.create(
+                model="meta/llama-3.1-70b-instruct",
+                messages=[{"role": "system", "content": "Ты HR-советник."}, {"role": "user", "content": prompt}],
+                max_tokens=150, temperature=0.3
+            ).choices[0].message.content.strip()
+        except Exception as e:
+            logger.warning(f"NVIDIA failed: {e}. Fallback to Template.")
+
+    return fallback_text
+
+```
+
+---
+
+## 5. API КОНТРАКТЫ (FastAPI)
+
+Приложение должно предоставлять следующие REST эндпоинты для фронтенда:
+
+1. **`GET /api/employees`**
+
+- _Ответ:_ Список базовой инфы всех сотрудников для UI списка.
+
+2. **`GET /api/employees/{employee_id}`**
+
+- _Ответ:_ Детальный профиль, текущие навыки, грейд, пройденные курсы (из `activity_history`).
+
+3. **`POST /api/recommend/{employee_id}`**
+
+- _Действие:_ Запускает скоринг -> Запускает LLM -> Отдает результат.
+- _Ответ:_ `[{ event_id: "EV_010", title: "...", reasoning: "Текст от LLM..." }]` (1-3 элемента).
+
+4. **`POST /api/complete/{employee_id}/{event_id}`**
+
+- _Действие:_ Обновляет прогресс сотрудника (прибавляет `gain` к скиллу, но не выше `max_level`) и добавляет запись `completed` в историю.
+- _Важно:_ Имитирует развитие "на лету".
+
+5. **`GET /api/hr/overview`**
+
+- _Ответ:_ HR-статистика: какие навыки чаще всего проседают по компании (нужно посчитать Gap для всех).
+
+6. **`POST /api/upload`**
+
+- _Действие:_ Принимает файлы `employees.json` и `activity_history.csv` через `multipart/form-data`.
+- _Логика:_ Загружает их в память бэкенда, чтобы следующий вызов `/api/recommend` уже использовал новые данные жюри.
+
+---
+
+## 6. ИНСТРУКЦИИ ДЛЯ LLM-АССИСТЕНТА (PROMPT FOR CURSOR/COPILOT)
+
+**Системное указание для ИИ-помощника, который будет писать код по этому документу:**
+
+1. Используй **FastAPI** для роутинга и **Pandas** для объединения данных (`merge`, `groupby` для истории).
+2. Раздели проект на модули: `main.py` (FastAPI), `data_loader.py` (хранение DataFrame в памяти и перезапись при `/upload`), `recommender.py` (математика), `llm.py` (OpenAI/Nvidia логика).
+3. Начни с реализации `data_loader.py` и логики вычисления Gap (Разрыва).
+4. Не добавляй базу данных (PostgreSQL/SQLite) — это усложнит развертывание в Docker. Храни Pandas DataFrames в памяти (in-memory) или читай из локальных файлов `data/*.json`, обновляя их при `/upload`.
+5. Строго соблюдай таймауты. Жюри проверяет работу при обрыве связи. Функция LLM всегда должна возвращать значение.

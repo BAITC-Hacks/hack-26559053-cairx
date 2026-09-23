@@ -1,0 +1,120 @@
+Точная спецификация. Скидывай Мади как есть.
+
+## Эндпоинты
+
+### 1. Список сотрудников
+GET /api/employees?search=&role=&grade=&limit=50
+→ [{employee_id, name, role, grade, tenure_months, has_recommendation: bool}]
+Для выпадающего списка «открыть произвольного сотрудника».
+
+### 2. Профиль + траектория
+GET /api/employees/{id}
+→ {
+  employee_id, name, role, grade, tenure_months,
+  next_grade: "Senior",
+  skills: [{code, name, current: 2, required_next: 4, gap: 2, type: "hard"}],
+  completed_activities: [{event_id, title, completed_at, skills_gained}],
+  history_stats: {attended: 8, skipped: 3, declined: 1},
+  trajectory: {progress_to_next_grade: 0.62, blocking_skills: ["SK_SYSTEM_DESIGN"]}
+}
+Это закрывает must-have №1 целиком. required_next и gap считайте на бэке, фронту не надо думать.
+
+### 3. Рекомендация ⭐ главный эндпоинт
+POST /api/recommend  {employee_id}
+→ {
+  employee_id,
+  generated_at,
+  llm_used: true,          // false = сработал fallback
+  recommendations: [
+    {
+      event_id, title, type, duration,
+      score: 0.87,
+      factors: {                      // ← числа, а не текст
+        gap_closure: {skill: "SK_SYSTEM_DESIGN", current: 2, required: 4, gain: 1},
+        grade_criticality: "critical_for_Senior",
+        history_fit: {similar_attended: 2, similar_skipped: 0, note: "проходит в срок"},
+        achievability: {max_level: 5, reachable: true}
+      },
+      explanation: "System Design — 2 при требуемых 4 для Senior..."
+    }
+  ],
+  not_recommended: [                  // опционально, но сильно
+    {event_id, title, reason: "Public Speaking пропущен 3 раза подряд"}
+  ]
+}
+
+Ключевое: factors считаются детерминированно в Python. LLM только превращает их в текст explanation. Если LLM упал — отдаёте шаблонную фразу из тех же чисел и ставите llm_used: false. Так вы никогда не падаете и всегда можете доказать жюри, что факторов больше трёх.
+
+not_recommended — это ваш козырь на защите. Жюри принесёт профиль-ловушку именно чтобы проверить, поймёте ли вы, что низкий Public Speaking брать не надо. Показать это явно = закрыть проверку демонстративно.
+
+### 4. Отметить выполненной
+POST /api/complete  {employee_id, event_id}
+→ {
+  updated_skills: [{code, before: 2, after: 3, max_level: 5}],
+  trajectory: {progress_to_next_grade: 0.62 → 0.71},
+  new_recommendations: [...]        // сразу пересчитать
+}
+Возвращайте before и after — фронт анимирует сдвиг, это самый наглядный момент демо.
+
+### 5. HR-срез
+GET /api/hr/overview
+→ {
+  weakest_skills: [{code, name, avg_level, required_avg, employees_below: 47}],
+  no_recommendation: [{employee_id, name, role, reason}],
+  activity_participation: [{event_id, title, attended, skipped, declined, rate: 0.34}],
+  totals: {employees: 200, with_gaps: 156}
+}
+
+### 6. Загрузка профилей жюри ⭐ не забыть
+POST /api/upload   (multipart: files[])
+→ {loaded: {employees: 3, events: 0, history_rows: 12}, employee_ids: [...], warnings: []}
+Принимать employees.json, activity_history.csv, skills.json, events.json — любое подмножество. Загруженное мержится с базовым датасетом, не заменяет его. Плюс:
+POST /api/reset   → вернуть исходный датасет
+
+### 7. Служебное
+GET /api/health → {status: "ok", llm_available: bool, employees_loaded: 200}
+Дёшево, а эксперту сразу видно, что всё поднялось.
+
+---
+
+## Страницы фронта
+
+Всё в одном index.html, переключение табами. Никакого роутера.
+
+### Таб 1 — «Сотрудник» (главный экран)
+- Сверху: селект сотрудника с поиском
+- Шапка профиля: имя, роль, грейд → следующий грейд, стаж
+- Навыки: полоски текущий / требуемый, красным те, где gap > 0. Сортировка по критичности для следующего грейда, не по абсолютному минимуму
+- Прогресс к грейду: одна полоса + подпись, какие навыки блокируют
+- «Следующие шаги» — 1–3 карточки. В каждой: название, кнопка «Выполнить», текст обоснования и под ним — факторы плашками: Разрыв: 2→4, Критично для Senior, История: 2 пройдено, 0 пропущено. Это визуально доказывает многофакторность
+- «Не рекомендуем сейчас» — свёрнутый блок, раскрывается
+- История активностей — простой список с иконкой посетил/пропустил/отказался
+
+### Таб 2 — «HR»
+Три блока, обычные таблицы:
+- Топ проседающих навыков
+- Сотрудники без рекомендации
+- Участие по активностям (посетили / пропустили / отказались, %)
+
+### Таб 3 — «Загрузить данные»
+- Drag-and-drop или обычный input, несколько файлов
+- После загрузки: «Загружено 3 профиля» + сразу ссылки, чтобы открыть их одним кликом
+- Кнопка «Сбросить к исходным данным»
+
+### Переключатель роли
+Кнопка вверху Сотрудник / HR. В режиме «Сотрудник» таб HR скрыт. Разграничение прав из ТЗ закрыто, а делать полноценный логин не нужно.
+
+---
+
+## Порядок сборки
+
+1. /api/employees + /api/employees/{id} → сразу видно данные, первый коммит с результатом
+2. /api/recommend без LLM, чистый скоринг → уже рабочий сценарий
+3. LLM поверх факторов
+4. /api/complete
+5. /api/upload
+6. /api/hr/overview
+
+Если время кончается на шаге 6 — HR-экран можно собрать на клиенте из уже загруженных профилей. А вот /api/upload пропускать нельзя.
+
+Сейчас 14:15, осталось 3ч45м. Скидывай структуру events.json и skills.json — напишу формулу скоринга.

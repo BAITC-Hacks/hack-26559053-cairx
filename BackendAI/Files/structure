@@ -1,0 +1,23 @@
+repo/
+├── app/
+│ ├── main.py # роуты + mount статики
+│ ├── schemas.py
+│ ├── services/
+│ │ ├── scoring.py # детерминированный скоринг
+│ │ ├── explain.py # LLM-обоснование + fallback
+│ │ └── loader.py # загрузка датасета и upload
+├── static/
+│ ├── index.html
+│ ├── app.js
+│ └── vendor/ # скачанные tailwind + daisyui
+├── data/ # стартовый кит
+│ ├── employees.json
+│ ├── events.json
+│ ├── skills.json
+│ └── activity_history.csv
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt
+├── .env.example
+├── AGENTS.md
+└── README.md
