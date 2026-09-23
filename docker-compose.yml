@@ -5,8 +5,6 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
-    volumes:
-      - ./static:/app/static
     env_file:
       - path: .env
         required: false
