@@ -1,0 +1,79 @@
+{
+  "employees": [
+    {
+      "employee_id": "JURY_HISTORY_TRAP",
+      "full_name": "Test profile: repeated speaking absences",
+      "role": "Backend Engineer",
+      "grade": "Middle",
+      "last_review_date": "2026-09-01",
+      "skills": {
+        "SK_PYTHON": 4,
+        "SK_SQL": 4,
+        "SK_API_DESIGN": 4,
+        "SK_SYSTEM_DESIGN": 3,
+        "SK_CLOUD": 3,
+        "SK_CONTAINERS": 3,
+        "SK_CICD": 3,
+        "SK_APP_SECURITY": 3,
+        "SK_OBSERVABILITY": 3,
+        "SK_COMMUNICATION": 3,
+        "SK_TEAMWORK": 3,
+        "SK_PROBLEM_SOLVING": 4,
+        "SK_MENTORING": 3,
+        "SK_LEADERSHIP": 2,
+        "SK_STAKEHOLDER_MGMT": 2,
+        "SK_PUBLIC_SPEAKING": 0
+      }
+    },
+    {
+      "employee_id": "JURY_NO_HISTORY",
+      "full_name": "Test profile: same skills without absences",
+      "role": "Backend Engineer",
+      "grade": "Middle",
+      "last_review_date": "2026-09-01",
+      "skills": {
+        "SK_PYTHON": 4,
+        "SK_SQL": 4,
+        "SK_API_DESIGN": 4,
+        "SK_SYSTEM_DESIGN": 3,
+        "SK_CLOUD": 3,
+        "SK_CONTAINERS": 3,
+        "SK_CICD": 3,
+        "SK_APP_SECURITY": 3,
+        "SK_OBSERVABILITY": 3,
+        "SK_COMMUNICATION": 3,
+        "SK_TEAMWORK": 3,
+        "SK_PROBLEM_SOLVING": 4,
+        "SK_MENTORING": 3,
+        "SK_LEADERSHIP": 2,
+        "SK_STAKEHOLDER_MGMT": 2,
+        "SK_PUBLIC_SPEAKING": 0
+      }
+    },
+    {
+      "employee_id": "JURY_REQUIREMENTS_MET",
+      "full_name": "Test profile: target requirements already met",
+      "role": "Backend Engineer",
+      "grade": "Middle",
+      "last_review_date": "2026-09-01",
+      "skills": {
+        "SK_PYTHON": 4,
+        "SK_SQL": 4,
+        "SK_API_DESIGN": 4,
+        "SK_SYSTEM_DESIGN": 4,
+        "SK_CLOUD": 3,
+        "SK_CONTAINERS": 3,
+        "SK_CICD": 3,
+        "SK_APP_SECURITY": 3,
+        "SK_OBSERVABILITY": 3,
+        "SK_COMMUNICATION": 3,
+        "SK_TEAMWORK": 3,
+        "SK_PROBLEM_SOLVING": 4,
+        "SK_MENTORING": 3,
+        "SK_LEADERSHIP": 2,
+        "SK_STAKEHOLDER_MGMT": 2,
+        "SK_PUBLIC_SPEAKING": 2
+      }
+    }
+  ]
+}

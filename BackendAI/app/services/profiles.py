@@ -71,7 +71,7 @@ def overview(data: Dataset) -> Overview:
             elif not any(levels.get(code, 0) < value for code, value in target.required_skills.items()):
                 reason = "Все требования целевого грейда уже выполнены."
             else:
-                history_reasons = [item.reason for item in excluded if "штраф за историю" in item.reason]
+                history_reasons = [item.reason for item in excluded if item.reason_code == "history_penalty"]
                 reason = history_reasons[0] if history_reasons else "Нет доступных активностей для оставшихся разрывов."
             no_recommendation.append(NoRecommendation(
                 employee_id=employee.employee_id, name=employee.full_name, role=employee.role, reason=reason,

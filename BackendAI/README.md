@@ -33,6 +33,25 @@ The top three sort by descending raw score, then ascending event ID. Public
 scores are `raw / (raw + 100)`; exact components are returned in `factors`.
 No LLM participates in eligibility, skill calculations or ranking.
 
+Every catalog activity appears exactly once in either `recommendations` or
+`not_recommended`. Exclusions have a stable `reason_code`: `ineligible`,
+`missing_target`, `no_gap`, `history_penalty`, or `lower_priority`. Scored but
+rejected candidates retain the same numeric `factors` as selected candidates;
+hard exclusions have `factors: null` rather than a made-up score. Positive
+candidates outside the top three expose `compared_with`, containing the last
+selected activity and its score components. Equal scores explicitly report a
+tie; event ID determines order without claiming one candidate is better.
+History exclusions and scored alternatives appear first, then other exclusions,
+with stable event-ID ordering within each group. Exclusion text is deterministic
+and needs no LLM. History lowers an activity's priority, not an employee rating.
+
+Trajectory progress is `sum(min(current, required)) / sum(required)` across
+target skills, rounded to four decimals. `attained_level_sum` and
+`required_level_sum` expose that numerator and denominator. Excess proficiency
+in one skill cannot compensate for another skill's gap. An empty set of known
+requirements is fully covered; missing target requirements yield zero progress.
+This is requirement coverage, not a promotion probability or an awarded grade.
+
 HR statistics use effective skill levels and role requirements. Participation
 rate is completed / (completed + dropped + no_show + declined); unresolved and
 mandatory-overdue records do not enter that denominator.
@@ -152,6 +171,11 @@ Future history is retained but does not affect this snapshot's recommendations.
 
 Completion is serialized with uploads/reset, applies gains without reducing any
 skill above a course's ceiling, and rejects repeated completion with HTTP 409.
+Mandatory activities also return HTTP 409: voluntary completion simulation
+cannot award progress for compulsory processes. Real mandatory history remains
+visible in profiles and HR statistics; catalog skill gains recorded after a
+review remain part of the supplied assessment model, without recommendation
+points, rewards or employee rankings.
 An in-progress enrollment becomes a completion with a new simulation record ID.
 Completion at the review date still applies its gains once. A new uploaded
 employee assessment takes precedence over simulated review-day adjustments.
@@ -204,7 +228,53 @@ The implementation uses the documented
 and [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs?api-mode=chat).
 No external provider is needed for the test suite.
 
-## Tests and limitations
+## Проверка критериев жюри
+
+Все сценарии ниже проверяются через `/docs`, без аккаунтов команды и без ключа
+LLM: в этом случае текст формируется локально, `llm_used: false`.
+
+| Критерий | Как проверить backend |
+| --- | --- |
+| Профиль и траектория | `GET /api/employees/E0001`: роль, грейд, навыки, разрывы, завершённые активности, числитель и знаменатель прогресса |
+| 1–3 релевантные активности | `POST /api/recommend` с `employee_id`: скоринг по четырём факторам; при отсутствии подходящих вариантов список пуст |
+| Объяснение | `explanation`, `factors.score_breakdown`, `not_recommended[].reason` и числовые факторы отвергнутых кандидатов |
+| Обновление прогресса | `POST /api/complete` для выбранного шага: уровни `before/after`, прежняя и новая траектория, пересчитанные рекомендации |
+| HR-view | `GET /api/hr/overview`: дефициты навыков, причины отсутствия шагов, участие по активностям |
+| Произвольные профили жюри | `POST /api/upload`: профили и история мержатся с текущими данными; затем доступны обычные маршруты профиля и рекомендаций |
+
+В `tests/fixtures/jury/` находятся **искусственные проверочные профили**, а не
+производственные данные или заранее подготовленные ответы. Они используют
+исходный каталог активностей и требования ролей, автоматически не загружаются.
+Алгоритм не содержит специальных условий для их идентификаторов.
+
+1. В `/docs` откройте `POST /api/upload`, нажмите **Try it out** и добавьте в
+   поле `files` оба файла из `tests/fixtures/jury/`: `employees.json` и
+   `activity_history.csv`. После загрузки должно быть 203 сотрудника.
+2. Вызовите `/api/recommend` для `JURY_HISTORY_TRAP`. У него Public Speaking
+   равен 0, System Design — 3 при требуемых 4 для Senior. Три пропуска клуба
+   исключают `EV_036`: в `not_recommended` видны `reason_code: history_penalty`,
+   `similar_skipped: 3` и компоненты `20 + 10 + 0 - 90 = -60`. Выбраны
+   `EV_006` и `EV_007`, развивающие критичный System Design; оценка каждой —
+   `10 + 10 + 20 - 0 = 40`. Базовый курс `EV_005` исключён из-за потолка навыка.
+3. Для `JURY_NO_HISTORY` навыки **те же**, но пропусков нет: `EV_036` входит
+   третьим шагом с оценкой `20 + 10 = 30`. Это проверяет влияние истории при
+   неизменном профиле навыков, а не правило «брать самый низкий навык».
+4. У `JURY_REQUIREMENTS_MET` нет разрывов: рекомендаций нет, и HR-срез
+   показывает понятную причину. Приложение не придумывает лишнее обучение.
+5. Для `JURY_HISTORY_TRAP` выполните `EV_006` через `/api/complete`.
+   System Design меняется с 3 до 4, числитель прогресса растёт на 1, блокер
+   исчезает. Грейд остаётся Middle: симуляция не является решением о повышении.
+6. Повторная загрузка исходных проверочных файлов до выполнения активности не
+   дублирует историю. `/api/reset` удаляет проверочные профили и возвращает 200
+   исходных сотрудников. Сброс также удаляет остальные изменения в памяти.
+
+Автоматическая проверка этого сценария:
+
+```powershell
+BackendAI/.venv/Scripts/python.exe -m pytest BackendAI/tests/test_jury_scenario.py -q
+```
+
+## Tests
 
 From the repository root:
 
@@ -218,7 +288,11 @@ review-date replay, course ceilings, concurrent completion, upload merges and
 rollback, reset, error responses, HR counts and LLM provider failures/timeouts.
 Controlled fixtures are used only for edge cases in tests.
 
-Verified locally after integration: **60 tests pass**, Python 3.13.
+Verified locally after the jury-criteria audit: **65 tests pass**, Python 3.13.
+The uploaded three-profile scenario covers recommendation and exclusion factors,
+course ceilings, idempotent merge, completion, HR changes and reset against the
+real catalog. Ranking was compared before/after this audit for all 200 original
+employees: selected activities, order and numeric factors are unchanged.
 Python 3.12 is the project target but was not available for this local run.
 The installed Starlette emits one test-client deprecation warning about httpx.
 Provider failures and successes are simulated in automated tests.
@@ -235,6 +309,26 @@ completions (two, one and zero respectively) without inventing participation.
 The previous implementation often hit its four-second deadline; the new
 implementation uses concurrent per-card requests and a larger bounded budget.
 Live NVIDIA access has not been verified.
+
+## Известные ограничения / Known limitations
+
+The four-factor formula is a transparent heuristic with fixed weights, not a
+validated predictor of training success or promotion. Matching history by event
+type OR overlapping skill can penalize a different activity of the same broad
+format. Counts do not establish reasons for absences, unwillingness to learn,
+ability, or workload. Recommendations are voluntary suggestions; no employee
+performance scores, leaderboards or compulsory participation incentives exist.
+
+There can be fewer than three recommendations, including none, when requirements
+are already covered, sessions/prerequisites block access, course ceilings prevent
+useful gains, or history reduces scores to zero. No course is invented to fill
+the list. Lead profiles use current-grade requirements, since no higher grade is
+defined. Role changes and personal career-goal paths are not modelled. Course
+gains are catalog assumptions, not evidence of actual learning; `/api/complete`
+is a demonstration of progress calculation, not verified attendance or assessment.
+
+The backend API checks above do not certify the frontend interaction or Docker
+deployment against the jury criteria. Those parts were outside this audit's scope.
 
 State is intentionally in memory: use a single server worker. Restart/reset
 discards uploads and simulated progress. The API has no authentication; the

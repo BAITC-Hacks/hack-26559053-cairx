@@ -113,8 +113,10 @@ class CompleteRequest(RecommendRequest):
 
 
 class Trajectory(BaseModel):
-    progress_to_next_grade: float
+    progress_to_next_grade: float = Field(ge=0, le=1, description="Coverage of target skill requirements, not a promotion probability.")
     blocking_skills: list[str]
+    attained_level_sum: int = Field(ge=0, description="Sum of min(current level, required level) over target skills.")
+    required_level_sum: int = Field(ge=0, description="Sum of target required levels; denominator of progress.")
 
 
 class EmployeeSummary(BaseModel):
@@ -209,10 +211,20 @@ class Recommendation(BaseModel):
     ] | None = None
 
 
+class RankingComparison(BaseModel):
+    event_id: str
+    title: str
+    score_breakdown: ScoreBreakdown
+    tied: bool = Field(description="Equal raw scores are ordered by ascending event_id.")
+
+
 class ExcludedEvent(BaseModel):
     event_id: str
     title: str
     reason: str
+    reason_code: Literal["ineligible", "missing_target", "no_gap", "history_penalty", "lower_priority"] = "ineligible"
+    factors: Factors | None = Field(default=None, description="Computed factors for scored candidates; null for eligibility exclusions.")
+    compared_with: RankingComparison | None = Field(default=None, description="Last selected activity, defining the top-three cutoff.")
 
 
 class RecommendationResponse(BaseModel):

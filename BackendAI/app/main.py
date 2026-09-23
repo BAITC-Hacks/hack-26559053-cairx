@@ -59,6 +59,12 @@ def employees(
 
 @router.get("/employees/{employee_id}", response_model=EmployeeProfile, tags=["Employees"])
 def employee_profile(employee_id: str, request: Request):
+    """Профиль, история завершений и разрывы до следующего грейда.
+
+    Прогресс — покрытие требований к навыкам, а не вероятность повышения.
+    В trajectory доступны числитель и знаменатель расчёта; критичные разрывы
+    перечислены в blocking_skills. Доступные шаги возвращает /api/recommend.
+    """
     data = request.app.state.store.snapshot()
     return profile(data, get_employee(data, employee_id))
 
@@ -76,6 +82,15 @@ async def make_recommendation(request: Request, employee_id: str):
 
 @router.post("/recommend", response_model=RecommendationResponse, tags=["Recommendations"])
 async def recommend(payload: RecommendRequest, request: Request):
+    """До трёх добровольных шагов с объяснением выбора и альтернатив.
+
+    factors раскрывает разрывы, критичность для целевого грейда, достижимый
+    прирост и влияние истории. not_recommended объясняет все остальные
+    активности: ограничения, влияние истории или место за пределами топ-3.
+    Для оценённых альтернатив доступны factors и сравнение compared_with.
+    LLM формулирует текст; при недоступности используется локальное объяснение.
+    Пустой список означает, что подходящих шагов в текущем каталоге нет.
+    """
     return await make_recommendation(request, payload.employee_id)
 
 
@@ -94,6 +109,13 @@ async def finish_activity(request: Request, employee_id: str, event_id: str):
 
 @router.post("/complete", response_model=CompleteResponse, tags=["Recommendations"])
 async def complete_activity(payload: CompleteRequest, request: Request):
+    """Симулировать завершение добровольной активности и пересчитать прогресс.
+
+    Возвращает уровни before/after, предыдущую и новую траекторию и новые шаги.
+    Обязательные активности исключены из симуляции. Повторное завершение
+    отклоняется, кроме повторяемого клуба в другую дату среза. Грейд автоматически
+    не меняется; действие не подтверждает фактическое прохождение обучения.
+    """
     return await finish_activity(request, payload.employee_id, payload.event_id)
 
 
@@ -104,6 +126,12 @@ async def complete_by_id(employee_id: str, event_id: str, request: Request):
 
 @router.get("/hr/overview", response_model=Overview, tags=["HR"])
 def hr_overview(request: Request):
+    """Дефициты навыков, сотрудники без доступного шага и участие по активностям.
+
+    Дефициты сравниваются с требованиями целевого грейда каждой роли.
+    Список сотрудников без шага сопровождается причинами и не является
+    рейтингом результативности. Участие отражает записи загруженной истории.
+    """
     return overview(request.app.state.store.snapshot())
 
 
@@ -112,6 +140,13 @@ async def upload(
     request: Request, files: list[UploadFile] | None = File(None),
     bracket_files: list[UploadFile] | None = File(None, alias="files[]"),
 ):
+    """Добавить или обновить профили и историю, сохранив остальные данные.
+
+    Принимает любое подмножество employees.json, activity_history.csv,
+    skills.json и events.json в формате датасета. Можно загрузить три профиля
+    жюри вместе с их историей одним запросом. Ошибка в любом файле отменяет
+    весь пакет. Изменения хранятся в памяти до перезапуска или /api/reset.
+    """
     uploads = (files or []) + (bracket_files or [])
     try:
         if not uploads or len(uploads) > len(DATA_FILES):

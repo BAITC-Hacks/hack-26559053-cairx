@@ -1,0 +1,4 @@
+record_id,employee_id,event_id,date,status,completion_pct
+JURY_MISS_1,JURY_HISTORY_TRAP,EV_036,2026-09-05,no_show,0
+JURY_MISS_2,JURY_HISTORY_TRAP,EV_036,2026-09-12,no_show,0
+JURY_MISS_3,JURY_HISTORY_TRAP,EV_036,2026-09-19,no_show,0

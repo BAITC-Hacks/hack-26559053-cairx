@@ -1,5 +1,8 @@
 from datetime import date
 
+import pytest
+from fastapi import HTTPException
+
 from app.schemas import Employee, Event, HistoryRecord, RoleProfile, Skill
 from app.services.completion import complete
 from app.services.loader import Dataset
@@ -48,6 +51,17 @@ def test_every_real_employee_has_deterministic_eligible_recommendations(store):
             assert 0 < item.score < 1
             assert item.factors.score_breakdown.total > 0
         assert not {item.event_id for item in first} & {item.event_id for item in excluded}
+        assert len(first) + len(excluded) == len(data.events)
+        assert len({item.event_id for item in excluded}) == len(excluded)
+        assert excluded == rank(data, employee)[1]
+        for item in excluded:
+            if item.reason_code in ("history_penalty", "lower_priority"):
+                assert item.factors is not None
+            else:
+                assert item.factors is None
+            if data.events[item.event_id].mandatory:
+                assert item.reason_code == "ineligible"
+                assert item.factors is None
 
 
 def test_critical_gap_beats_lowest_absolute_skill_and_ties_use_id():
@@ -62,7 +76,57 @@ def test_three_negative_attempts_avoid_speaking_trap():
     data = scenario(history=rows)
     results, excluded = rank(data, data.employees["TEST"])
     assert [item.event_id for item in results] == ["DESIGN_COURSE"]
-    assert "штраф за историю" in next(item.reason for item in excluded if item.event_id == "SPEAK_COURSE")
+    trap = next(item for item in excluded if item.event_id == "SPEAK_COURSE")
+    assert "штраф за историю" in trap.reason
+    assert trap.reason_code == "history_penalty"
+    assert trap.factors.history_fit.similar_skipped == 2
+    assert trap.factors.history_fit.similar_declined == 1
+    assert trap.factors.score_breakdown.model_dump() == {
+        "gap": 10, "achievability": 10, "criticality": 0, "history_penalty": 90, "total": -70,
+    }
+
+
+def test_positive_candidates_outside_top_three_have_comparable_factors():
+    data = scenario(events=[event("C"), event("B"), event("A"), event("S", "SPEAK")])
+    selected, excluded = rank(data, data.employees["TEST"])
+    assert [item.event_id for item in selected] == ["A", "B", "C"]
+    alternative, = excluded
+    assert alternative.event_id == "S"
+    assert alternative.reason_code == "lower_priority"
+    assert alternative.factors.score_breakdown.total == 20
+    assert alternative.compared_with.event_id == "C"
+    assert alternative.compared_with.score_breakdown.total == 50
+    assert alternative.compared_with.tied is False
+
+
+def test_cutoff_tie_is_explained_without_claiming_higher_score():
+    data = scenario(events=[event(identifier) for identifier in ("D", "B", "C", "A")])
+    selected, excluded = rank(data, data.employees["TEST"])
+    assert [item.event_id for item in selected] == ["A", "B", "C"]
+    alternative, = excluded
+    assert alternative.event_id == "D"
+    assert alternative.compared_with.tied is True
+    assert alternative.factors.score_breakdown == alternative.compared_with.score_breakdown
+    assert "равенстве" in alternative.reason
+
+
+def test_progress_exposes_capped_numerator_and_denominator():
+    data = scenario(skills={"DESIGN": 5, "SPEAK": 0})
+    progress = profile(data, data.employees["TEST"]).trajectory
+    assert progress.attained_level_sum == 4  # excess DESIGN cannot substitute for SPEAK
+    assert progress.required_level_sum == 5
+    assert progress.progress_to_next_grade == 0.8
+
+
+def test_mandatory_activity_cannot_award_simulated_progress(store):
+    store._state = scenario(events=[event("MANDATORY", mandatory=True)])
+    before = store.snapshot()
+    with pytest.raises(HTTPException) as failure:
+        complete(store, "TEST", "MANDATORY")
+    assert failure.value.status_code == 409
+    assert store.snapshot() is before
+    assert store.snapshot().effective_skills["TEST"]["DESIGN"] == 2
+    assert not store.snapshot().history
 
 
 def test_history_matches_type_or_skill_and_counts_once():
